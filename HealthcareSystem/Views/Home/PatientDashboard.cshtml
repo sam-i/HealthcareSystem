@@ -1,0 +1,191 @@
+﻿@model HealthcareSystem.Models.Patients
+@inject ApplicationDbContext _context
+@{
+    ViewData["Title"] = "Patient Dashboard";
+    var medicalImageIds = Model.GetMedicalImageIdsList();
+    var medicalImages = _context.MedicalImages
+                                .Where(img => medicalImageIds.Contains(img.Id))
+                                .ToList();
+    var diagnosesIds = Model.GetDiagnosesIdsList();
+    var diagnoses = _context.Diagnoses
+                                .Where(diagnosis => diagnosesIds.Contains(diagnosis.Id))
+                                .ToList();
+}
+<!-- Logout Button -->
+<form action="@Url.Action("Logout", "Patient")" method="post" style="position: absolute; top: 10px; right: 10px;">
+    <button type="submit" class="btn btn-danger">Logout</button>
+</form>
+
+<div class="container mt-4">
+    <!-- Patient Information Card -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+            <h4 class="mb-0">Personal Information</h4>
+            <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                Edit Profile
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="fw-bold">Name:</label>
+                        <p class="mb-0">@Model.Name</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Address:</label>
+                        <p class="mb-0">@Model.Address</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Current Condition:</label>
+                        <p class="mb-0">@(Model.CurrentCondition ?? "No condition specified")</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="fw-bold">Assigned Doctor:</label>
+                        <p class="mb-0">@(Model.AssignedDoctor?.Name ?? "Not Assigned")</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Assigned Radiologist:</label>
+                        <p class="mb-0">@(Model.AssignedRadiologist?.Name ?? "Not Assigned")</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold">Last Visit:</label>
+                        <p class="mb-0">@(Model.LastVisit?.ToString("MM/dd/yyyy") ?? "No visits recorded")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tasks and Costs Card -->
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Tasks and Associated Costs</h4>
+            <span class="badge bg-light text-dark">Total Cost: @Model.TotalCost.ToString("C")</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="tasksTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Task Type</th>
+                            <th>Details</th>
+                            <th>Cost</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var image in medicalImages.OrderByDescending(m => m.UploadDate))
+                        {
+                            <tr>
+                                <td>@image.UploadDate.ToString("MM/dd/yyyy")</td>
+                                <td>Medical Image (@image.ImageType)</td>
+                                <td>@image.DiseaseCategory</td>
+                                <td>@image.Cost?.ToString("C")</td>
+                                <td><span class="badge bg-success">Completed</span></td>
+                            </tr>
+                        }
+
+                        @foreach (var diagnosis in diagnoses.OrderByDescending(d => d.DiagnosisDate))
+                        {
+                            <tr>
+                                <td>@diagnosis.DiagnosisDate.ToString("MM/dd/yyyy")</td>
+                                <td>Diagnosis</td>
+                                <td>@diagnosis.DiseaseType - @diagnosis.Notes</td>
+                                <td>$0.00</td>
+                                <td>
+                                    <span class="badge bg-primary">Recorded</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editProfileForm">
+                <div class="modal-body">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="patientId" value="@Model.Id" />
+                    <input type="hidden" id="userId" value="@Model.UserId" />
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="name" value="@Model.Name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <input type="text" class="form-control" id="address" value="@Model.Address" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Initialize DataTable
+        $(document).ready(function () {
+            $('#tasksTable').DataTable({
+                order: [[0, 'desc']],
+                pageLength: 10,
+                language: {
+                    search: "Search tasks:",
+                    lengthMenu: "Show _MENU_ tasks per page"
+                }
+            });
+        });
+
+        // Handle form submission
+        document.getElementById('editProfileForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const data = {
+                id: document.getElementById('patientId').value,
+                userId: document.getElementById('userId').value,
+                name: document.getElementById('name').value,
+                address: document.getElementById('address').value
+            };
+
+            try {
+                const response = await fetch('/Patients/EditProfile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const error = await response.text();
+                    alert('Error updating profile: ' + error);
+                }
+            } catch (error) {
+                alert('Error updating profile');
+                console.error('Error:', error);
+            }
+        });
+    </script>
+}

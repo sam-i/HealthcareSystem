@@ -1,0 +1,55 @@
+﻿@using System.Security.Claims
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="/">Healthcare System</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            @if (User.Identity.IsAuthenticated)
+            {
+                <ul class="navbar-nav">
+                    @switch (User.FindFirst(ClaimTypes.Role)?.Value)
+                    {
+                        case "Administrator":
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Admin/Dashboard">Dashboard</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Admin/Users">Manage Users</a>
+                            </li>
+                            break;
+
+                        case "Doctor":
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Doctor/Patients">My Patients</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Doctor/Diagnoses">Diagnoses</a>
+                            </li>
+                            break;
+
+                        case "Radiologist":
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Radiologist/Patients">My Patients</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Radiologist/Images">Images</a>
+                            </li>
+                            break;
+
+                        case "Patient":
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Patient/Dashboard">My Dashboard</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Patient/Images">My Images</a>
+                            </li>
+                            break;
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</nav>
