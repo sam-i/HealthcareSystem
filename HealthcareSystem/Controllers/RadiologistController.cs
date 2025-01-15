@@ -85,9 +85,6 @@ namespace HealthcareSystem.Controllers
         {
             try
             {
-                _logger.LogInformation($"Upload attempt - PatientId: {patientId}, RadiologistId: {radiologistId}, ImageType: {imageType}, Cost: {cost}, File: {imageFile?.FileName}");
-
-                // Validate input parameters
                 if (patientId <= 0 || radiologistId <= 0)
                 {
                     return BadRequest(new { success = false, message = "Invalid patient or radiologist ID" });
@@ -103,7 +100,6 @@ namespace HealthcareSystem.Controllers
                     return BadRequest(new { success = false, message = "Invalid cost value" });
                 }
 
-                // Validate file type
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".dcm" };
                 var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
                 if (!allowedExtensions.Contains(fileExtension))
@@ -111,26 +107,21 @@ namespace HealthcareSystem.Controllers
                     return BadRequest(new { success = false, message = $"Invalid file type. Allowed types: {string.Join(", ", allowedExtensions)}" });
                 }
 
-                // Start a transaction to ensure data consistency
                 using var transaction = await _context.Database.BeginTransactionAsync();
 
                 try
                 {
-                    // Ensure upload directory exists
                     var uploadDirectory = Path.Combine(_environment.WebRootPath, "uploads", "medical-images");
                     Directory.CreateDirectory(uploadDirectory);
 
-                    // Generate unique filename
                     var fileName = $"{Guid.NewGuid()}{fileExtension}";
                     var filePath = Path.Combine(uploadDirectory, fileName);
 
-                    // Save file
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
                         await imageFile.CopyToAsync(stream);
                     }
 
-                    // Create medical image record
                     var medicalImage = new MedicalImages
                     {
                         PatientId = patientId,
@@ -145,11 +136,21 @@ namespace HealthcareSystem.Controllers
                     _context.MedicalImages.Add(medicalImage);
                     await _context.SaveChangesAsync();
 
-                    // Update patient's total cost
+                    var patientTask = new PatientTasks
+                    {
+                        Description = "Pay for Image Scan Procedure",
+                        Cost = cost ?? 0,
+                        TaskCost = cost ?? 0,
+                        Date = DateTime.UtcNow,
+                        Status = 0,
+                        PatientId = patientId
+                    };
+
+                    _context.PatientTasks.Add(patientTask);
+
                     var patient = await _context.Patients.FindAsync(patientId);
                     if (patient != null)
                     {
-                        // Calculate total cost of all images for this patient
                         var totalImageCost = await _context.MedicalImages
                             .Where(m => m.PatientId == patientId)
                             .SumAsync(m => m.Cost ?? 0);
@@ -158,7 +159,6 @@ namespace HealthcareSystem.Controllers
                         await _context.SaveChangesAsync();
                     }
 
-                    // Commit transaction
                     await transaction.CommitAsync();
 
                     return Json(new
@@ -175,16 +175,14 @@ namespace HealthcareSystem.Controllers
                         }
                     });
                 }
-                catch (Exception)
+                catch
                 {
-                    // Roll back transaction if anything fails
                     await transaction.RollbackAsync();
                     throw;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error uploading medical image - PatientId: {patientId}, RadiologistId: {radiologistId}");
                 return BadRequest(new { success = false, message = "An error occurred while uploading the image: " + ex.Message });
             }
         }
@@ -211,6 +209,16 @@ namespace HealthcareSystem.Controllers
 
                     // Store patientId before deleting the image
                     var patientId = image.PatientId;
+
+                    // delete patient task
+                    var task = await _context.PatientTasks
+                        .Where(t => t.PatientId == patientId)
+                        .Where(t => t.Date == image.UploadDate)
+                        .FirstOrDefaultAsync();
+                    if (task != null)
+                    {
+                        _context.PatientTasks.Remove(task);
+                    }
 
                     // Delete physical file if it exists
                     var filePath = Path.Combine(_environment.WebRootPath, "uploads", "medical-images", image.StoragePath);
