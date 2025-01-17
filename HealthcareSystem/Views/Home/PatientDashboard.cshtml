@@ -1,23 +1,23 @@
-﻿@model HealthcareSystem.Models.Patients
+﻿@using System.IO
+@using HealthcareSystem.Models
+@using System.Collections.Generic
+@model HealthcareSystem.ViewModels.PatientDashboardViewModel
 @inject ApplicationDbContext _context
 @{
     ViewData["Title"] = "Patient Dashboard";
-    var medicalImageIds = Model.GetMedicalImageIdsList();
-    var medicalImages = _context.MedicalImages
-                                .Where(img => medicalImageIds.Contains(img.Id))
-                                .ToList();
-    var diagnosesIds = Model.GetDiagnosesIdsList();
-    var diagnoses = _context.Diagnoses
-                                .Where(diagnosis => diagnosesIds.Contains(diagnosis.Id))
-                                .ToList();
+    var assignedDoctor = Model.Patient.AssignedDoctorId.HasValue
+            ? _context.Doctors.FirstOrDefault(d => d.Id == Model.Patient.AssignedDoctorId.Value)
+            : null;
+    var assignedRadiologist = Model.Patient.AssignedRadiologistId.HasValue
+        ? _context.Radiologists.FirstOrDefault(d => d.Id == Model.Patient.AssignedRadiologistId.Value)
+        : null;
 }
-<!-- Logout Button -->
+
 <form action="@Url.Action("Logout", "Patient")" method="post" style="position: absolute; top: 10px; right: 10px;">
     <button type="submit" class="btn btn-danger">Logout</button>
 </form>
 
 <div class="container mt-4">
-    <!-- Patient Information Card -->
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
             <h4 class="mb-0">Personal Information</h4>
@@ -30,40 +30,35 @@
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="fw-bold">Name:</label>
-                        <p class="mb-0">@Model.Name</p>
+                        <p class="mb-0">@Model.Patient.Name</p>
                     </div>
                     <div class="mb-3">
                         <label class="fw-bold">Address:</label>
-                        <p class="mb-0">@Model.Address</p>
+                        <p class="mb-0">@Model.Patient.Address</p>
                     </div>
                     <div class="mb-3">
                         <label class="fw-bold">Current Condition:</label>
-                        <p class="mb-0">@(Model.CurrentCondition ?? "No condition specified")</p>
+                        <p class="mb-0">@(Model.Patient.CurrentCondition ?? "No condition specified")</p>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="fw-bold">Assigned Doctor:</label>
-                        <p class="mb-0">@(Model.AssignedDoctor?.Name ?? "Not Assigned")</p>
+                        <p class="mb-0">@(assignedDoctor?.Name ?? "Not Assigned")</p>
                     </div>
                     <div class="mb-3">
                         <label class="fw-bold">Assigned Radiologist:</label>
-                        <p class="mb-0">@(Model.AssignedRadiologist?.Name ?? "Not Assigned")</p>
-                    </div>
-                    <div class="mb-3">
-                        <label class="fw-bold">Last Visit:</label>
-                        <p class="mb-0">@(Model.LastVisit?.ToString("MM/dd/yyyy") ?? "No visits recorded")</p>
+                        <p class="mb-0">@(assignedRadiologist?.Name ?? "Not Assigned")</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Tasks and Costs Card -->
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">Tasks and Associated Costs</h4>
-            <span class="badge bg-light text-dark">Total Cost: @Model.TotalCost.ToString("C")</span>
+            <h4 class="mb-0">Patient Tasks</h4>
+            <span class="badge bg-light text-dark">Total Tasks Cost: @Model.Patient.TotalCost.ToString("C")</span>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -71,34 +66,89 @@
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>Task Type</th>
-                            <th>Details</th>
+                            <th>Description</th>
                             <th>Cost</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var image in medicalImages.OrderByDescending(m => m.UploadDate))
+                        @foreach (var task in (Model.PatientTasks).OrderByDescending(t => t.Date))
                         {
                             <tr>
-                                <td>@image.UploadDate.ToString("MM/dd/yyyy")</td>
-                                <td>Medical Image (@image.ImageType)</td>
-                                <td>@image.DiseaseCategory</td>
-                                <td>@image.Cost?.ToString("C")</td>
-                                <td><span class="badge bg-success">Completed</span></td>
+                                <td>@task.Date.ToString("MM/dd/yyyy")</td>
+                                <td>@task.Description</td>
+                                <td>@task.TaskCost.ToString("C")</td>
+                                <td>
+                                    @{
+                                        var badgeClass = "";
+                                        var statusText = "";
+
+                                        switch (task.Status)
+                                        {
+                                            case (int)PatientTaskStatus.Completed:
+                                                badgeClass = "bg-success";
+                                                statusText = "Completed";
+                                                break;
+                                            case (int)PatientTaskStatus.InProgress:
+                                                badgeClass = "bg-info";
+                                                statusText = "In Progress";
+                                                break;
+                                            case (int)PatientTaskStatus.Cancelled:
+                                                badgeClass = "bg-danger";
+                                                statusText = "Cancelled";
+                                                break;
+                                            case (int)PatientTaskStatus.Pending:
+                                            default:
+                                                badgeClass = "bg-warning";
+                                                statusText = "Pending";
+                                                break;
+                                        }
+                                    }
+                                    <span class="badge @badgeClass">@statusText</span>
+                                </td>
                             </tr>
                         }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-                        @foreach (var diagnosis in diagnoses.OrderByDescending(d => d.DiagnosisDate))
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Medical Images</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="imagesTable">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Upload Date</th>
+                            <th>Image Type</th>
+                            <th>Disease Category</th>
+                            <th>Cost</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var image in Model.Patient.MedicalImages.OrderByDescending(m => m.UploadDate))
                         {
                             <tr>
-                                <td>@diagnosis.DiagnosisDate.ToString("MM/dd/yyyy")</td>
-                                <td>Diagnosis</td>
-                                <td>@diagnosis.DiseaseType - @diagnosis.Notes</td>
-                                <td>$0.00</td>
                                 <td>
-                                    <span class="badge bg-primary">Recorded</span>
+                                    @{
+                                        var fileName = System.IO.Path.GetFileName(image.StoragePath);
+                                        var webPath = $"/uploads/medical-images/{fileName}";
+                                    }
+                                    <img src="@webPath" alt="Medical Image"
+                                         class="img-thumbnail" style="max-width: 100px; cursor: pointer"
+                                         onclick="showFullImage('@webPath')" />
                                 </td>
+                                <td>@image.UploadDate.ToString("MM/dd/yyyy")</td>
+                                <td>@((ImageType)image.ImageType)</td>
+                                <td>@image.DiseaseCategory</td>
+                                <td>@image.Cost?.ToString("C")</td>
+                                <td>@image.Notes</td>
                             </tr>
                         }
                     </tbody>
@@ -108,7 +158,6 @@
     </div>
 </div>
 
-<!-- Edit Profile Modal -->
 <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -119,17 +168,15 @@
             <form id="editProfileForm">
                 <div class="modal-body">
                     @Html.AntiForgeryToken()
-                    <input type="hidden" id="patientId" value="@Model.Id" />
-                    <input type="hidden" id="userId" value="@Model.UserId" />
-
+                    <input type="hidden" id="patientId" value="@Model.Patient.Id" />
+                    <input type="hidden" id="userId" value="@Model.Patient.UserId" />
                     <div class="mb-3">
                         <label for="name" class="form-label">Name</label>
-                        <input type="text" class="form-control" id="name" value="@Model.Name" required>
+                        <input type="text" class="form-control" id="name" value="@Model.Patient.Name" required>
                     </div>
-
                     <div class="mb-3">
                         <label for="address" class="form-label">Address</label>
-                        <input type="text" class="form-control" id="address" value="@Model.Address" required>
+                        <input type="text" class="form-control" id="address" value="@Model.Patient.Address" required>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -141,9 +188,48 @@
     </div>
 </div>
 
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Medical Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="fullImage" src="" alt="Full Medical Image" class="img-fluid" />
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
+    <style>
+        .img-thumbnail {
+            transition: transform 0.2s;
+        }
+
+        .img-thumbnail:hover {
+            transform: scale(1.1);
+        }
+
+        #imageModal .modal-body {
+            padding: 0;
+        }
+
+        #fullImage {
+            max-height: 80vh;
+            object-fit: contain;
+        }
+
+        .scrollable-content {
+            max-height: calc(100vh - 50px);
+            overflow-y: auto;
+            padding-right: 15px;
+        }
+    </style>
+
     <script>
-        // Initialize DataTable
+        // Initialize DataTables
         $(document).ready(function () {
             $('#tasksTable').DataTable({
                 order: [[0, 'desc']],
@@ -153,7 +239,23 @@
                     lengthMenu: "Show _MENU_ tasks per page"
                 }
             });
+
+            $('#imagesTable').DataTable({
+                order: [[1, 'desc']],  // Sort by upload date
+                pageLength: 10,
+                language: {
+                    search: "Search images:",
+                    lengthMenu: "Show _MENU_ images per page"
+                }
+            });
         });
+
+        // Function to show full image in modal
+        function showFullImage(imagePath) {
+            document.getElementById('fullImage').src = imagePath;
+            var imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+            imageModal.show();
+        }
 
         // Handle form submission
         document.getElementById('editProfileForm').addEventListener('submit', async function (e) {

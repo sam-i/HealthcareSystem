@@ -18,9 +18,8 @@ namespace HealthcareSystem.Models
         public int UploadedByRadiologistId { get; set; }
         public Radiologists UploadedByRadiologist { get; set; }
         public bool IsClassified { get; set; }
-        public DateTime? ClassificationDate { get; set; }
         public decimal? Cost { get; set; }
-
+        public int? PatientTaskId { get; set; }
     }
 
     public enum ImageType

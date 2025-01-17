@@ -21,47 +21,46 @@ namespace HealthcareSystem.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure Patients - AssignedDoctor relationship
             modelBuilder.Entity<Patients>()
                 .HasOne(p => p.AssignedDoctor)
                 .WithMany(d => d.PatientIds)
                 .HasForeignKey(p => p.AssignedDoctorId)
-                .OnDelete(DeleteBehavior.SetNull); // or any other delete behavior you prefer
+                .OnDelete(DeleteBehavior.SetNull); 
 
-            // Configure Patients - AssignedRadiologist relationship (only add it once)
             modelBuilder.Entity<Patients>()
                 .HasOne(p => p.AssignedRadiologist)
                 .WithMany(r => r.PatientIds)
                 .HasForeignKey(p => p.AssignedRadiologistId)
-                .OnDelete(DeleteBehavior.SetNull); // or any other delete behavior you prefer
+                .OnDelete(DeleteBehavior.SetNull);
 
-            // Configure Diagnoses - Patients relationship
             modelBuilder.Entity<Diagnoses>()
                 .HasOne(d => d.Patient)
-                .WithMany(p => p.Diagnoses) // Assuming you have a Diagnoses collection in Patients
+                .WithMany(p => p.Diagnoses) 
                 .HasForeignKey(d => d.PatientId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Configure Diagnoses - Doctors relationship
             modelBuilder.Entity<Diagnoses>()
                 .HasOne(d => d.DiagnosedByDoctor)
                 .WithMany(dr => dr.DiagnosesIds)
                 .HasForeignKey(d => d.DiagnosedByDoctorId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Configure MedicalImages - Patients relationship
             modelBuilder.Entity<MedicalImages>()
                 .HasOne(m => m.Patient)
-                .WithMany(p => p.MedicalImages) // Assuming you have a MedicalImages collection in Patients
+                .WithMany(p => p.MedicalImages) 
                 .HasForeignKey(m => m.PatientId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Configure MedicalImages - Radiologists relationship
             modelBuilder.Entity<MedicalImages>()
                 .HasOne(m => m.UploadedByRadiologist)
                 .WithMany(r => r.MedicalImagesIds)
                 .HasForeignKey(m => m.UploadedByRadiologistId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<PatientTasks>()
+                .HasOne(pt => pt.Patient)
+                .WithMany()
+                .HasForeignKey(pt => pt.PatientId);
         }
     }
 }

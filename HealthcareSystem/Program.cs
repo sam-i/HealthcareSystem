@@ -133,4 +133,12 @@ app.MapControllerRoute(
     name: "patient",
     pattern: "{controller=Patient}/{action=Dashboard}/{id?}");
 
+app.MapControllerRoute(
+    name: "radiologist",
+    pattern: "{controller=Radiologist}/{action=Dashboard}/{id?}");
+
+app.MapControllerRoute(
+    name: "doctor",
+    pattern: "{controller=Doctor}/{action=Dashboard}/{id?}");
+
 app.Run();

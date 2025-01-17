@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using HealthcareSystem.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication;
+using HealthcareSystem.ViewModels;
 
 namespace HealthcareSystem.Controllers
 {
@@ -21,14 +22,12 @@ namespace HealthcareSystem.Controllers
             _context = context;
         }
 
-        // GET: Patients/Dashboard/5
         [HttpGet]
         public async Task<IActionResult> Dashboard(int id)
         {
             var patient = await _context.Patients
                 .Include(p => p.User)
-                .Include(p => p.AssignedDoctor)
-                .Include(p => p.AssignedRadiologist)
+                .Include(p => p.MedicalImages)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (patient == null)
@@ -36,13 +35,31 @@ namespace HealthcareSystem.Controllers
                 return NotFound();
             }
 
-            // Calculate total costs
-            patient.TotalCost = CalculateTotalCosts(patient);
+            var assignedDoctor = await _context.Doctors
+                .Where(d => d.Id == patient.AssignedDoctorId)
+                .Include(d => d.User)
+                .FirstOrDefaultAsync();
 
-            return View("~/Views/Home/PatientDashboard.cshtml", patient);
+            var assignedRadiologist = await _context.Radiologists
+                .Where(r => r.Id == patient.AssignedRadiologistId)
+                .Include(r => r.User)
+                .FirstOrDefaultAsync();
+
+            var patientTasks = await _context.PatientTasks
+                .Where(pt => pt.PatientId == id)
+                .ToListAsync();
+
+            var viewModel = new PatientDashboardViewModel
+            {
+                Patient = patient,
+                AssignedDoctor = assignedDoctor,
+                AssignedRadiologist = assignedRadiologist,
+                PatientTasks = patientTasks
+            };
+
+            return View("~/Views/Home/PatientDashboard.cshtml", viewModel);
         }
 
-        // POST: Patients/EditProfile
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditProfile([FromBody] Patients patientUpdate)
@@ -75,18 +92,7 @@ namespace HealthcareSystem.Controllers
         // Helper methods
         private decimal CalculateTotalCosts(Patients patient)
         {
-            decimal totalCost = 0;
-
-            var medicalImageIds = patient.GetMedicalImageIdsList();
-            if (medicalImageIds.Any())
-            {
-                var imageCosts = _context.MedicalImages
-                    .Where(m => medicalImageIds.Contains(m.Id))
-                    .Sum(m => m.Cost.GetValueOrDefault());
-                totalCost += imageCosts;
-            }
-
-            return totalCost;
+            return patient.MedicalImages?.Sum(m => m.Cost ?? 0) ?? 0;
         }
 
         private bool PatientExists(int id)

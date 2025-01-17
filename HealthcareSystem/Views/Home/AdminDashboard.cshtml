@@ -5,12 +5,10 @@
 
 <h2>Admin Dashboard</h2>
 
-<!-- Logout Button -->
 <form action="@Url.Action("Logout", "Admin")" method="post" style="position: absolute; top: 10px; right: 10px;">
     <button type="submit" class="btn btn-danger">Logout</button>
 </form>
 
-<!-- Add New User Buttons -->
 <div class="mb-4">
     <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addDoctorModal">
         Add Doctor
@@ -54,20 +52,20 @@
             <th>Actions</th>
         </tr>
     </thead>
-    <tbody>   
-        @foreach(var patient in Model.Patients)        
-        {           
-            <tr>               
-                <td>@patient.Name</td>                
-                <td>@patient.Address</td>                
-                <td>@patient.AssignedDoctorName</td>                
-                <td>@patient.AssignedRadiologistName</td>                
-                <td>@patient.TotalCost.ToString("C")</td>                
+    <tbody>
+        @foreach (var patient in Model.Patients)
+        {
+            <tr>
+                <td>@patient.Name</td>
+                <td>@patient.Address</td>
+                <td>@patient.AssignedDoctorName</td>
+                <td>@patient.AssignedRadiologistName</td>
+                <td>@patient.TotalCost.ToString("C")</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="editPatient(@patient.Id)">Edit</button>                   
+                    <button class="btn btn-sm btn-primary" onclick="editPatient(@patient.Id)">Edit</button>
                     <button class="btn btn-sm btn-danger" onclick="confirmDelete('patient', @patient.Id)">Delete</button>
-                </td>  
-            </tr>        
+                </td>
+            </tr>
         }
     </tbody>
 </table>
@@ -81,17 +79,17 @@
             <th>Actions</th>
         </tr>
     </thead>
-    <tbody>  
-        @foreach (var doctor in Model.Doctors)        
-        {            
-            <tr>               
-                <td>@doctor.Name</td>               
-                <td>@doctor.PatientCount</td>                
-                <td>                  
-                    <button class="btn btn-sm btn-primary" onclick="editDoctor(@doctor.Id)">Edit</button>                    
-                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('doctor', @doctor.Id)">Delete</button>               
-                </td>           
-            </tr>       
+    <tbody>
+        @foreach (var doctor in Model.Doctors)
+        {
+            <tr>
+                <td>@doctor.Name</td>
+                <td>@doctor.PatientCount</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editDoctor(@doctor.Id)">Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('doctor', @doctor.Id)">Delete</button>
+                </td>
+            </tr>
         }
     </tbody>
 </table>
@@ -106,21 +104,20 @@
         </tr>
     </thead>
     <tbody>
-        @foreach(var radiologist in Model.Radiologists)       
-        {           
-            <tr>               
-                <td>@radiologist.Name</td>                
+        @foreach (var radiologist in Model.Radiologists)
+        {
+            <tr>
+                <td>@radiologist.Name</td>
                 <td>@radiologist.PatientCount</td>
-                <td>                    
-                    <button class="btn btn-sm btn-primary" onclick="editRadiologist(@radiologist.Id)">Edit</button>                   
-                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('radiologist', @radiologist.Id)">Delete</button>                
-                </td>           
-            </tr>        
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editRadiologist(@radiologist.Id)">Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('radiologist', @radiologist.Id)">Delete</button>
+                </td>
+            </tr>
         }
     </tbody>
 </table>
 
-<!-- Add Doctor Modal -->
 <div class="modal fade" id="addDoctorModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -161,7 +158,6 @@
     </div>
 </div>
 
-<!-- Add Radiologist Modal -->
 <div class="modal fade" id="addRadiologistModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -202,7 +198,6 @@
     </div>
 </div>
 
-<!-- Add Patient Modal -->
 <div class="modal fade" id="addPatientModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -261,6 +256,7 @@
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -282,18 +278,16 @@
 @section Scripts {
     <script>
         $(document).ready(function () {
-            // Initialize multiple select dropdowns with Select2
             $('select[multiple]').select2({
                 width: '100%',
                 placeholder: 'Select patients'
             });
         });
+
         function confirmDelete(type, id) {
             const modal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
             const confirmBtn = document.getElementById('confirmDeleteBtn');
-
             confirmBtn.onclick = function () {
-                // Send delete request
                 fetch(`/Admin/Delete${type.charAt(0).toUpperCase() + type.slice(1)}/${id}`, {
                     method: 'POST',
                     headers: {
@@ -308,11 +302,9 @@
                 });
                 modal.hide();
             };
-
             modal.show();
         }
 
-        // Handle edit redirects
         function editPatient(id) {
             window.location.href = `/Admin/EditPatient/${id}`;
         }

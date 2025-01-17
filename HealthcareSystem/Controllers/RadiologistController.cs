@@ -15,17 +15,13 @@ namespace HealthcareSystem.Controllers
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<RadiologistController> _logger;
 
-        public RadiologistController(
-            ApplicationDbContext context,
-            IWebHostEnvironment environment,
-            ILogger<RadiologistController> logger)
+        public RadiologistController(ApplicationDbContext context, IWebHostEnvironment environment, ILogger<RadiologistController> logger)
         {
             _context = context;
             _environment = environment;
             _logger = logger;
         }
 
-        // GET: Radiologist/Dashboard/{id}
         public async Task<IActionResult> Dashboard(int id)
         {
             var radiologist = await _context.Radiologists
@@ -39,6 +35,7 @@ namespace HealthcareSystem.Controllers
 
             var patients = await _context.Patients
                 .Where(p => p.AssignedRadiologistId == radiologist.Id)
+                .OrderBy(p => p.Name)
                 .ToListAsync();
 
             var viewModel = new RadiologistDashboardViewModel
@@ -51,7 +48,6 @@ namespace HealthcareSystem.Controllers
             return View("~/Views/Home/RadiologistDashboard.cshtml", viewModel);
         }
 
-        // GET: Radiologist/GetPatientImages?patientId={id}
         [HttpGet]
         public async Task<IActionResult> GetPatientImages(int patientId)
         {
@@ -78,7 +74,6 @@ namespace HealthcareSystem.Controllers
             }
         }
 
-        // POST: Radiologist/UploadImage
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UploadImage(int patientId, int radiologistId, int imageType, decimal? cost, IFormFile imageFile)
@@ -108,7 +103,6 @@ namespace HealthcareSystem.Controllers
                 }
 
                 using var transaction = await _context.Database.BeginTransactionAsync();
-
                 try
                 {
                     var uploadDirectory = Path.Combine(_environment.WebRootPath, "uploads", "medical-images");
@@ -130,32 +124,31 @@ namespace HealthcareSystem.Controllers
                         UploadDate = DateTime.UtcNow,
                         UploadedByRadiologistId = radiologistId,
                         IsClassified = false,
-                        Cost = cost
+                        Cost = cost,
+                        PatientTaskId = null
                     };
-
                     _context.MedicalImages.Add(medicalImage);
                     await _context.SaveChangesAsync();
 
                     var patientTask = new PatientTasks
                     {
                         Description = "Pay for Image Scan Procedure",
-                        Cost = cost ?? 0,
                         TaskCost = cost ?? 0,
                         Date = DateTime.UtcNow,
                         Status = 0,
-                        PatientId = patientId
+                        PatientId = patientId,
+                        MedicalImageId = medicalImage.Id
                     };
-
                     _context.PatientTasks.Add(patientTask);
+                    await _context.SaveChangesAsync();
+
+                    medicalImage.PatientTaskId = patientTask.Id;
+                    _context.MedicalImages.Update(medicalImage);
 
                     var patient = await _context.Patients.FindAsync(patientId);
                     if (patient != null)
                     {
-                        var totalImageCost = await _context.MedicalImages
-                            .Where(m => m.PatientId == patientId)
-                            .SumAsync(m => m.Cost ?? 0);
-
-                        patient.TotalCost = totalImageCost;
+                        patient.TotalCost += cost.Value;
                         await _context.SaveChangesAsync();
                     }
 
@@ -187,7 +180,6 @@ namespace HealthcareSystem.Controllers
             }
         }
 
-        // POST: Radiologist/DeleteImage
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteImage(int imageId, int radiologistId)
@@ -195,10 +187,8 @@ namespace HealthcareSystem.Controllers
             try
             {
                 using var transaction = await _context.Database.BeginTransactionAsync();
-
                 try
                 {
-                    // Find the image and validate permissions
                     var image = await _context.MedicalImages
                         .FirstOrDefaultAsync(m => m.Id == imageId && m.UploadedByRadiologistId == radiologistId);
 
@@ -207,51 +197,37 @@ namespace HealthcareSystem.Controllers
                         return Json(new { success = false, message = "Image not found or you are not authorized to delete this image." });
                     }
 
-                    // Store patientId before deleting the image
                     var patientId = image.PatientId;
 
-                    // delete patient task
                     var task = await _context.PatientTasks
-                        .Where(t => t.PatientId == patientId)
-                        .Where(t => t.Date == image.UploadDate)
-                        .FirstOrDefaultAsync();
+                        .FirstOrDefaultAsync(t => t.MedicalImageId == imageId);
                     if (task != null)
                     {
                         _context.PatientTasks.Remove(task);
                     }
 
-                    // Delete physical file if it exists
                     var filePath = Path.Combine(_environment.WebRootPath, "uploads", "medical-images", image.StoragePath);
                     if (System.IO.File.Exists(filePath))
                     {
                         System.IO.File.Delete(filePath);
                     }
 
-                    // Remove image record from database
                     _context.MedicalImages.Remove(image);
                     await _context.SaveChangesAsync();
 
-                    // Update patient's total cost
                     var patient = await _context.Patients.FindAsync(patientId);
                     if (patient != null)
                     {
-                        // Recalculate total cost for patient's remaining images
-                        var totalImageCost = await _context.MedicalImages
-                            .Where(m => m.PatientId == patientId)
-                            .SumAsync(m => m.Cost ?? 0);
-
-                        patient.TotalCost = totalImageCost;
+                        patient.TotalCost -= image.Cost ?? 0;
                         await _context.SaveChangesAsync();
                     }
 
-                    // Commit all changes
                     await transaction.CommitAsync();
 
                     return Json(new { success = true, message = "Image deleted successfully." });
                 }
                 catch (Exception)
                 {
-                    // Roll back all changes if anything fails
                     await transaction.RollbackAsync();
                     throw;
                 }
@@ -263,13 +239,26 @@ namespace HealthcareSystem.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetPatientDoctor(int patientId)
+        {
+            var patient = await _context.Patients
+                .Include(p => p.AssignedDoctor)
+                    .ThenInclude(d => d.User)
+                .FirstOrDefaultAsync(p => p.Id == patientId);
+
+            if (patient?.AssignedDoctor != null)
+            {
+                return Json(new { doctorName = patient.AssignedDoctor.User.Name });
+            }
+
+            return Json(new { doctorName = "" });
+        }
+
         [HttpPost]
         public IActionResult Logout()
         {
-            // Clear the authentication cookie (sign out)
             HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-            // Redirect to the login page or home page
             return RedirectToAction("Login", "Auth");
         }
     }

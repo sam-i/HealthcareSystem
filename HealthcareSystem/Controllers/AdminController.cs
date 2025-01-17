@@ -15,7 +15,6 @@ namespace HealthcareSystem.Controllers
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;
-
         public AdminController(ApplicationDbContext context)
         {
             _context = context;
@@ -30,50 +29,55 @@ namespace HealthcareSystem.Controllers
                 TotalRadiologists = await _context.Radiologists.CountAsync(),
                 TotalSystemCost = await _context.Patients.SumAsync(t => t.TotalCost),
 
-                // Fetch list of patients with their assigned doctor and radiologist
                 Patients = await _context.Patients
-                    .Include(p => p.AssignedDoctor)
-                        .ThenInclude(d => d.User)
-                    .Include(p => p.AssignedRadiologist)
-                        .ThenInclude(r => r.User)
+                    .Include(p => p.User)
                     .Select(p => new PatientDto
                     {
                         Id = p.Id,
                         Name = p.Name,
                         Address = p.Address,
-                        AssignedDoctorName = p.AssignedDoctor.User.Name,
-                        AssignedRadiologistName = p.AssignedRadiologist.User.Name,
+                        AssignedDoctorName = _context.Doctors
+                            .Where(d => d.Id == p.AssignedDoctorId)
+                            .Select(d => d.User.Name)
+                            .FirstOrDefault(),
+                        AssignedRadiologistName = _context.Radiologists
+                            .Where(r => r.Id == p.AssignedRadiologistId)
+                            .Select(r => r.User.Name)
+                            .FirstOrDefault(),
                         TotalCost = p.TotalCost
                     })
+                    .OrderBy(p => p.Name)
                     .ToListAsync(),
 
-                // Fetch doctors with their patient count
-                Doctors = await _context.Doctors
-                    .Include(d => d.User)
-                    .Include(d => d.PatientIds)
-                    .Select(d => new DoctorSummaryDto
-                    {
-                        Id = d.Id,
-                        Name = d.User.Name,
-                        PatientCount = d.PatientIds.Count
-                    })
-                    .ToListAsync(),
 
-                // Fetch radiologists with their patient count
-                Radiologists = await _context.Radiologists
-                    .Include(r => r.User)
-                    .Include(r => r.PatientIds)
-                    .Select(r => new RadiologistSummaryDto
-                    {
-                        Id = r.Id,
-                        Name = r.User.Name,
-                        PatientCount = r.PatientIds.Count
-                    })
-                    .ToListAsync()
+                    Doctors = await _context.Doctors
+                        .Include(d => d.User)
+                        .Include(d => d.PatientIds)
+                        .Select(d => new DoctorSummaryDto
+                        {
+                            Id = d.Id,
+                            Name = d.User.Name,
+                            PatientCount = d.PatientIds.Count
+                        })
+                        .OrderBy(p => p.Name)
+                        .ToListAsync(),
+
+                    Radiologists = await _context.Radiologists
+                        .Include(r => r.User)
+                        .Include(r => r.PatientIds)
+                        .Select(r => new RadiologistSummaryDto
+                        {
+                            Id = r.Id,
+                            Name = r.User.Name,
+                            PatientCount = r.PatientIds.Count
+                        })
+                        .OrderBy(p => p.Name)
+                        .ToListAsync()
             };
 
             return View("~/Views/Home/AdminDashboard.cshtml", viewModel);
         }
+
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] CreateAccountDto dto)
         {
@@ -85,13 +89,12 @@ namespace HealthcareSystem.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Hash the password
                 string hashedPassword = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
                 var user = new Users
                 {
                     Username = dto.Username,
-                    PasswordHash = hashedPassword,  // Store hashed password
+                    PasswordHash = hashedPassword,
                     Role = dto.Role,
                     Name = dto.Name
                 };
@@ -99,7 +102,6 @@ namespace HealthcareSystem.Controllers
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                // Create corresponding role-specific record
                 switch (dto.Role)
                 {
                     case 2: // Doctor
@@ -107,40 +109,42 @@ namespace HealthcareSystem.Controllers
                         {
                             UserId = user.Id,
                             Name = dto.Name,
-                            PatientIds = new List<Patients>(),  // Initialize empty collection
-                            DiagnosesIds = new List<Diagnoses>() // Initialize empty collection
+                            PatientIds = new List<Patients>(),
+                            DiagnosesIds = new List<Diagnoses>()
                         };
                         _context.Doctors.Add(doctor);
                         break;
-
                     case 3: // Radiologist
                         var radiologist = new Radiologists
                         {
                             UserId = user.Id,
                             Name = dto.Name,
-                            PatientIds = new List<Patients>(), // Initialize empty collection
-                            MedicalImagesIds = new List<MedicalImages>() // Initialize empty collection
+                            PatientIds = new List<Patients>(),
+                            MedicalImagesIds = new List<MedicalImages>()
                         };
                         _context.Radiologists.Add(radiologist);
                         break;
-
                     case 4: // Patient
                         var patient = new Patients
                         {
                             UserId = user.Id,
                             Name = dto.Name,
                             Address = dto.Address,
-                            MedicalImagesIds = "", // Initialize empty collection
-                            DiagnosesIds = "", // Initialize empty collection
-                            TotalCost = 0 // Initialize cost
+                            MedicalImages = new List<MedicalImages>(),
+                            Diagnoses = new List<Diagnoses>(),
+                            TotalCost = 0
                         };
                         _context.Patients.Add(patient);
                         break;
+                    default:
+                        await transaction.RollbackAsync();
+                        return BadRequest("Invalid role specified");
                 }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return Ok(new { message = "User created successfully" });
+
+                return RedirectToAction("EditPatient", new { id = user.Id });
             }
             catch (Exception ex)
             {
@@ -148,26 +152,24 @@ namespace HealthcareSystem.Controllers
                 return BadRequest($"Error creating user: {ex.Message}");
             }
         }
+
         [HttpPost]
         public async Task<IActionResult> AddDoctor(AddDoctorViewModel model)
         {
             if (ModelState.IsValid)
             {
-                // Create CreateAccountDto from the model
                 var createAccountDto = new CreateAccountDto
                 {
                     Username = model.Username,
-                    Password = model.Password, // Note: In production, implement proper password hashing
+                    Password = model.Password, 
                     Name = model.Name,
                     Role = 2 // Doctor role
                 };
 
-                // Use existing CreateUser method to create both User and Doctor records
                 var result = await CreateUser(createAccountDto);
 
                 if (result is OkObjectResult)
                 {
-                    // If patients were selected, assign them
                     if (model.PatientIds != null && model.PatientIds.Any())
                     {
                         var doctor = await _context.Doctors
@@ -183,16 +185,11 @@ namespace HealthcareSystem.Controllers
                             foreach (var patient in patients)
                             {
                                 patient.AssignedDoctorId = doctor.Id;
-                                doctor.PatientIds.Add(patient); // Add to doctor's collection
+                                doctor.PatientIds.Add(patient);
                             }
                             await _context.SaveChangesAsync();
                         }
                     }
-                    TempData["Success"] = "Doctor added successfully";
-                }
-                else
-                {
-                    TempData["Error"] = "Error adding doctor";
                 }
             }
             return RedirectToAction("Dashboard", "Admin");
@@ -203,7 +200,6 @@ namespace HealthcareSystem.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Create CreateAccountDto from the model
                 var createAccountDto = new CreateAccountDto
                 {
                     Username = model.Username,
@@ -212,12 +208,10 @@ namespace HealthcareSystem.Controllers
                     Role = 3 // Radiologist role
                 };
 
-                // Use existing CreateUser method to create both User and Radiologist records
                 var result = await CreateUser(createAccountDto);
 
                 if (result is OkObjectResult)
                 {
-                    // If patients were selected, assign them
                     if (model.PatientIds != null && model.PatientIds.Any())
                     {
                         var radiologist = await _context.Radiologists
@@ -238,11 +232,6 @@ namespace HealthcareSystem.Controllers
                             await _context.SaveChangesAsync();
                         }
                     }
-                    TempData["Success"] = "Radiologist added successfully";
-                }
-                else
-                {
-                    TempData["Error"] = "Error adding radiologist";
                 }
             }
             return RedirectToAction("Dashboard", "Admin");
@@ -253,22 +242,19 @@ namespace HealthcareSystem.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Create CreateAccountDto from the model
                 var createAccountDto = new CreateAccountDto
                 {
                     Username = model.Username,
                     Password = model.Password,
                     Name = model.Name,
                     Role = 4, // Patient role
-                    Address = model.Address // Make sure your CreateAccountDto includes this property
+                    Address = model.Address 
                 };
 
-                // Use existing CreateUser method to create both User and Patient records
                 var result = await CreateUser(createAccountDto);
 
                 if (result is OkObjectResult)
                 {
-                    // After patient is created, assign doctor and radiologist if specified
                     var patient = await _context.Patients
                         .FirstOrDefaultAsync(p => p.User.Username == model.Username);
 
@@ -277,20 +263,14 @@ namespace HealthcareSystem.Controllers
                         patient.CurrentCondition = model.CurrentCondition;
                         patient.AssignedDoctorId = model.AssignedDoctorId;
                         patient.AssignedRadiologistId = model.AssignedRadiologistId;
-                        patient.LastVisit = DateTime.Now;
 
                         await _context.SaveChangesAsync();
                     }
-
-                    TempData["Success"] = "Patient added successfully";
-                }
-                else
-                {
-                    TempData["Error"] = "Error adding patient";
                 }
             }
             return RedirectToAction("Dashboard", "Admin");
         }
+
         [HttpGet]
         public async Task<IActionResult> EditPatient(int id)
         {
@@ -310,29 +290,27 @@ namespace HealthcareSystem.Controllers
                 Id = patient.Id,
                 Name = patient.Name,
                 Address = patient.Address,
-                CurrentCondition = patient.CurrentCondition,
                 AssignedDoctorId = patient.AssignedDoctorId,
                 AssignedRadiologistId = patient.AssignedRadiologistId,
                 AvailableDoctors = await _context.Doctors
-                    .Include(d => d.User)
                     .Select(d => new SelectListItem
                     {
                         Value = d.Id.ToString(),
-                        Text = d.User.Name
+                        Text = d.Name
                     })
                     .ToListAsync(),
                 AvailableRadiologists = await _context.Radiologists
-                    .Include(r => r.User)
                     .Select(r => new SelectListItem
                     {
                         Value = r.Id.ToString(),
-                        Text = r.User.Name
+                        Text = r.Name
                     })
                     .ToListAsync()
             };
 
             return View("~/Views/Home/EditPatient.cshtml", viewModel);
         }
+
 
         [HttpPost]
         public async Task<IActionResult> EditPatient(EditPatientViewModel model)
@@ -354,7 +332,6 @@ namespace HealthcareSystem.Controllers
                 patient.AssignedDoctorId = model.AssignedDoctorId;
                 patient.AssignedRadiologistId = model.AssignedRadiologistId;
 
-                // Update the associated user's name
                 patient.User.Name = model.Name;
 
                 await _context.SaveChangesAsync();
@@ -410,7 +387,6 @@ namespace HealthcareSystem.Controllers
 
                 doctor.User.Name = model.Name;
 
-                // Update patient assignments
                 var currentPatientIds = doctor.PatientIds.Select(p => p.Id).ToList();
                 var patientsToRemove = currentPatientIds.Except(model.AssignedPatientIds ?? new List<int>());
                 var patientsToAdd = (model.AssignedPatientIds ?? new List<int>()).Except(currentPatientIds);
@@ -486,7 +462,6 @@ namespace HealthcareSystem.Controllers
 
                 radiologist.User.Name = model.Name;
 
-                // Update patient assignments
                 var currentPatientIds = radiologist.PatientIds.Select(p => p.Id).ToList();
                 var patientsToRemove = currentPatientIds.Except(model.AssignedPatientIds ?? new List<int>());
                 var patientsToAdd = (model.AssignedPatientIds ?? new List<int>()).Except(currentPatientIds);
@@ -515,7 +490,6 @@ namespace HealthcareSystem.Controllers
             return View("~/Views/Home/EditRadiologist.cshtml", model);
         }
 
-        // Delete Methods
         [HttpPost]
         public async Task<IActionResult> DeletePatient(int id)
         {
@@ -531,13 +505,11 @@ namespace HealthcareSystem.Controllers
                     return NotFound();
                 }
 
-                // Remove the user record
                 if (patient.User != null)
                 {
                     _context.Users.Remove(patient.User);
                 }
 
-                // Remove the patient record
                 _context.Patients.Remove(patient);
 
                 await _context.SaveChangesAsync();
@@ -551,6 +523,7 @@ namespace HealthcareSystem.Controllers
                 return BadRequest("Error deleting patient");
             }
         }
+
         [HttpPost]
         public async Task<IActionResult> DeleteDoctor(int id)
         {
@@ -567,19 +540,16 @@ namespace HealthcareSystem.Controllers
                     return NotFound();
                 }
 
-                // Remove doctor assignments from patients
                 foreach (var patient in doctor.PatientIds)
                 {
                     patient.AssignedDoctorId = null;
                 }
 
-                // Remove the user record
                 if (doctor.User != null)
                 {
                     _context.Users.Remove(doctor.User);
                 }
 
-                // Remove the doctor record
                 _context.Doctors.Remove(doctor);
 
                 await _context.SaveChangesAsync();
@@ -610,19 +580,16 @@ namespace HealthcareSystem.Controllers
                     return NotFound();
                 }
 
-                // Remove radiologist assignments from patients
                 foreach (var patient in radiologist.PatientIds)
                 {
                     patient.AssignedRadiologistId = null;
                 }
 
-                // Remove the user record
                 if (radiologist.User != null)
                 {
                     _context.Users.Remove(radiologist.User);
                 }
 
-                // Remove the radiologist record
                 _context.Radiologists.Remove(radiologist);
 
                 await _context.SaveChangesAsync();
@@ -695,13 +662,11 @@ namespace HealthcareSystem.Controllers
 
             return Ok(stats);
         }
+
         [HttpPost]
         public IActionResult Logout()
         {
-            // Clear the authentication cookie (sign out)
             HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-            // Redirect to the login page or home page
             return RedirectToAction("Login", "Auth");
         }
 

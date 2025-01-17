@@ -1,0 +1,808 @@
+﻿@model HealthcareSystem.ViewModels.DoctorDashboardViewModel
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var token = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+}
+<form action="@Url.Action("Logout", "Doctor")" method="post" style="position: absolute; top: 10px; right: 10px;">
+    <button type="submit" class="btn btn-danger">Logout</button>
+</form>
+<div class="container-fluid scrollable-content">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h4>My Patients</h4>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.Patients == null || !Model.Patients.Any())
+                    {
+                        <p class="text-center mt-3">No patients assigned</p>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var patient in Model.Patients)
+                            {
+                                <a href="#"
+                                   class="list-group-item list-group-item-action patient-select"
+                                   data-patient-id="@patient.Id"
+                                   data-patient-name="@patient.Name"
+                                   data-patient-address="@patient.Address"
+                                   data-patient-conditions="@patient.CurrentCondition">
+                                    @patient.Name
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-9">
+            <div id="patientDetailsSection" style="display:none;">
+                <div class="d-flex justify-content-end mb-3">
+                    <button class="btn btn-primary" id="generateReportBtn">
+                        Generate Patient Report
+                    </button>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4 id="patientDetailsHeader">Patient Details</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="patientDetailsForm">
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label>Patient Name</label>
+                                    <input type="text" class="form-control" id="patientName" readonly>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label>Current Radiologist</label>
+                                    <input type="text" class="form-control" id="patientRadiologist" readonly>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Current Condition</label>
+                                <div class="d-flex">
+                                    <textarea class="form-control" id="patientConditions" rows="3"></textarea>
+                                    <button type="button" class="btn btn-primary ms-2" id="updateConditionBtn">Update Condition</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5>Patient Tasks</h5>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                                    Add New Task
+                                </button>
+                            </div>
+                            <div id="patientTasksList" class="mt-3">
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <h5>Medical Images</h5>
+                            <div id="patientImagesList" class="row mt-3">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="addTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addTaskForm">
+                <div class="modal-body">
+                    <input type="hidden" name="patientId" id="taskPatientId" />
+                    <input type="hidden" name="__RequestVerificationToken" value="@token" />
+                    <div class="form-group mb-3">
+                        <label for="taskDescription">Description</label>
+                        <textarea class="form-control" id="taskDescription" name="description" required rows="3"></textarea>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="taskCost">Cost</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="taskCost" name="cost" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Add Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="editTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editTaskForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editTaskId" name="taskId" />
+                    <input type="hidden" name="__RequestVerificationToken" value="@token" />
+                    <div class="form-group mb-3">
+                        <label for="editTaskDescription">Description</label>
+                        <textarea class="form-control" id="editTaskDescription" name="description" required rows="3"></textarea>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="editTaskCost">Cost</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="editTaskCost" name="cost" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Update Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="updateImageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Image Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="updateImageForm">
+                <div class="modal-body">
+                    <input type="hidden" id="updateImageId" name="imageId" />
+                    <input type="hidden" name="__RequestVerificationToken" value="@token" />
+                    <div class="form-group mb-3">
+                        <label for="diseaseCategory">Disease Category</label>
+                        <input type="text" class="form-control" id="diseaseCategory" name="diseaseCategory">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="imageNotes">Notes</label>
+                        <textarea class="form-control" id="imageNotes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="imageViewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Image Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <img id="fullSizeImage" src="" class="img-fluid mb-3" alt="Medical Image">
+                </div>
+                <div id="imageDetails" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Patient Medical Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="reportContent"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="printReportBtn">Print Report</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1050;"></div>
+@section Scripts {
+    <style>
+        body.modal-open {
+            overflow: auto !important;
+            padding-right: 0 !important;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .cursor-pointer {
+            cursor: pointer;
+        }
+
+        .scrollable-content {
+            max-height: calc(100vh - 50px);
+            overflow-y: auto;
+            padding-right: 15px;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showToast(message, type = 'success') {
+            const toast = `
+                        <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="d-flex">
+                                <div class="toast-body">${message}</div>
+                                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                            </div>
+                        </div>`;
+            $('#toastContainer').append(toast);
+            const toastElement = $('.toast').last();
+            const bsToast = new bootstrap.Toast(toastElement);
+            bsToast.show();
+            toastElement.on('hidden.bs.toast', function () {
+                $(this).remove();
+            });
+        }
+
+        function getImageTypeName(imageType) {
+            switch (parseInt(imageType)) {
+                case 1: return 'MRI';
+                case 2: return 'CT';
+                case 3: return 'X-Ray';
+                default: return 'Unknown';
+            }
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString();
+        }
+
+        function cleanupModal(modalId) {
+            $(`#${modalId}`).modal('hide');
+            $('.modal-backdrop').remove();
+            $(`#${modalId} form`)[0]?.reset();
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            $('body')
+                .removeClass('modal-open')
+                .css({
+                    'overflow': 'auto',
+                    'padding-right': '0'
+                });
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 10);
+        }
+
+        function loadPatientTasks(patientId) {
+            $.get('@Url.Action("GetPatientTasks", "Doctor")', { patientId: patientId })
+                .done(function (tasks) {
+                    const tasksList = $('#patientTasksList');
+                    tasksList.empty();
+                    if (!tasks || tasks.length === 0) {
+                        tasksList.append('<p>No tasks assigned yet.</p>');
+                        return;
+                    }
+                    const table = $('<table class="table">').append(`
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Cost</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2" class="text-end"><strong>Total Cost:</strong></td>
+                                <td colspan="2">
+                                    <strong>$${tasks.reduce((sum, task) => sum + (parseFloat(task.taskCost) || 0), 0).toFixed(2)}</strong>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    `);
+                    tasks.forEach(function (task) {
+                        const taskCost = parseFloat(task.taskCost) || 0;
+                        const row = $('<tr>').append(`
+                            <td>${formatDate(task.date)}</td>
+                            <td>${task.description}</td>
+                            <td>$${taskCost.toFixed(2)}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary edit-task"
+                                        data-task-id="${task.id}"
+                                        data-description="${task.description}"
+                                        data-cost="${taskCost}">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-task"
+                                        data-task-id="${task.id}">
+                                    Delete
+                                </button>
+                            </td>
+                        `);
+                        table.find('tbody').append(row);
+                    });
+                    tasksList.append(table);
+                })
+                .fail(function (xhr, status, error) {
+                    console.error('Error loading tasks:', error);
+                    $('#patientTasksList').html('<p class="text-danger">Error loading tasks.</p>');
+                    showToast('Error loading tasks', 'danger');
+                });
+        }
+
+        function loadPatientImages(patientId) {
+            $.get('@Url.Action("GetPatientImages", "Doctor")', { patientId: patientId })
+                .done(function (images) {
+                    const imagesList = $('#patientImagesList');
+                    imagesList.empty();
+                    if (!images || images.length === 0) {
+                        imagesList.append('<div class="col-12"><p>No images uploaded yet.</p></div>');
+                        return;
+                    }
+                    images.forEach(function (image) {
+                        const cost = parseFloat(image.cost) || 0;
+                        const diseaseCategory = (image.diseaseCategory || '').replace(/"/g, '&quot;');
+                        const notes = (image.notes || '').replace(/"/g, '&quot;');
+                        const html = `
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card">
+                                            <img src="/uploads/medical-images/${image.storagePath}"
+                                                 class="card-img-top img-thumbnail cursor-pointer"
+                                                 alt="Medical Image"
+                                                 style="height: 200px; object-fit: cover;"
+                                                 onclick='viewImage(${JSON.stringify({ ...image, cost: cost })})'>
+                                            <div class="card-body">
+                                                <p class="card-text">
+                                                    <strong>Type:</strong> ${getImageTypeName(image.imageType)}<br>
+                                                    <strong>Disease:</strong> ${diseaseCategory || 'Not specified'}<br>
+                                                    <strong>Cost:</strong> $${cost.toFixed(2)}
+                                                </p>
+                                                <button class="btn btn-sm btn-primary"
+                                                        onclick='showUpdateImageModal(${image.id}, "${diseaseCategory}", "${notes}")'>
+                                                    Update Details
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>`;
+                        imagesList.append(html);
+                    });
+                })
+                .fail(function (xhr, status, error) {
+                    console.error('Error loading images:', { xhr, status, error });
+                    showToast('Error loading images', 'danger');
+                });
+        }
+
+        function viewImage(image) {
+            const cost = parseFloat(image.cost) || 0;
+            $('#fullSizeImage').attr('src', `/uploads/medical-images/${image.storagePath}`);
+            $('#imageDetails').html(`
+                        <p><strong>Type:</strong> ${getImageTypeName(image.imageType)}</p>
+                        <p><strong>Uploaded:</strong> ${formatDate(image.uploadDate)}</p>
+                        <p><strong>Cost:</strong> ${cost.toFixed(2)}</p>
+                        <p><strong>Disease Category:</strong> ${image.diseaseCategory || 'Not specified'}</p>
+                        <p><strong>Notes:</strong> ${image.notes || 'No notes'}</p>
+                    `);
+            const modal = new bootstrap.Modal(document.getElementById('imageViewModal'));
+            modal.show();
+        }
+
+        function showUpdateImageModal(imageId, diseaseCategory, notes) {
+            $('#updateImageId').val(imageId);
+            $('#diseaseCategory').val(diseaseCategory);
+            $('#imageNotes').val(notes);
+            const modal = new bootstrap.Modal(document.getElementById('updateImageModal'));
+            modal.show();
+        }
+
+        function formatReportDate(date) {
+            return new Date(date).toLocaleString();
+        }
+
+        function generateReport(reportData) {
+            return `
+                <div class="container-fluid">
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h4 class="text-center mb-3">Medical Report</h4>
+                            <p class="text-end">Generated on: ${formatReportDate(reportData.reportDate)}</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Patient Information</h5>
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th width="20%">Name</th>
+                                    <td>${reportData.patientInfo.name}</td>
+                                    <th width="20%">Address</th>
+                                    <td>${reportData.patientInfo.address}</td>
+                                </tr>
+                                <tr>
+                                    <th>Current Condition</th>
+                                    <td>${reportData.patientInfo.condition || 'Not specified'}</td>
+                                    <th>Total Cost</th>
+                                    <td>$${reportData.patientInfo.totalCost.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <th>Doctor</th>
+                                    <td>${reportData.patientInfo.doctor}</td>
+                                    <th>Radiologist</th>
+                                    <td>${reportData.patientInfo.radiologist || 'Not assigned'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5>Medical Images</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Image</th>
+                                            <th>Type</th>
+                                            <th>Upload Date</th>
+                                            <th>Disease Category</th>
+                                            <th>Notes</th>
+                                            <th>Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${Array.from(reportData.images).map(img => `
+                                            <tr>
+                                                <td>
+                                                    <img src="/uploads/medical-images/${img.storagePath}"
+                                                         class="img-thumbnail"
+                                                         style="max-height: 100px;"
+                                                         alt="Medical Image">
+                                                </td>
+                                                <td>${img.type}</td>
+                                                <td>${formatReportDate(img.uploadDate)}</td>
+                                                <td>${img.diseaseCategory || 'Not specified'}</td>
+                                                <td>${img.notes || 'No notes'}</td>
+                                                <td>$${img.cost ? img.cost.toFixed(2) : '0.00'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <h5>Tasks History</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Description</th>
+                                            <th>Status</th>
+                                            <th>Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${Array.from(reportData.tasks).map(task => `
+                                            <tr>
+                                                <td>${formatReportDate(task.date)}</td>
+                                                <td>${task.description}</td>
+                                                <td>${task.status}</td>
+                                                <td>$${task.cost.toFixed(2)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        $(document).ready(function () {
+            $('.patient-select').on('click', function (e) {
+                e.preventDefault();
+                $('.modal-backdrop').remove();
+                $('body')
+                    .removeClass('modal-open')
+                    .css({
+                        'overflow': '',
+                        'padding-right': ''
+                    });
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                $('.patient-select').removeClass('active');
+                $(this).addClass('active');
+                const patientId = $(this).data('patient-id');
+                $('#patientName').val($(this).data('patient-name'));
+                $('#patientAddress').val($(this).data('patient-address'));
+                $('#patientConditions').val($(this).data('patient-conditions'));
+                $('#taskPatientId').val(patientId);
+                $.get('@Url.Action("GetPatientRadiologist", "Doctor")', { patientId: patientId })
+                    .done(function (result) {
+                        $('#patientRadiologist').val(result.radiologistName || 'No Radiologist Assigned');
+                    })
+                    .fail(function () {
+                        $('#patientRadiologist').val('Error loading radiologist');
+                    });
+                $('#patientDetailsSection').show();
+                loadPatientTasks(patientId);
+                loadPatientImages(patientId);
+            });
+
+            $('#updateConditionBtn').on('click', function () {
+                const patientId = $('.patient-select.active').data('patient-id');
+                const condition = $('#patientConditions').val();
+                const formData = {
+                    patientId: parseInt(patientId),
+                    condition: condition,
+                    __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+                };
+                $.ajax({
+                    url: '@Url.Action("UpdatePatientCondition", "Doctor")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    headers: {
+                        'RequestVerificationToken': formData.__RequestVerificationToken
+                    },
+                    success: function (result) {
+                        if (result.success) {
+                            showToast(result.message);
+                            $(`.patient-select[data-patient-id="${patientId}"]`)
+                                .data('patient-conditions', condition);
+                        } else {
+                            showToast(result.message || 'Update failed', 'danger');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error details:', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            responseText: xhr.responseText,
+                            error: error
+                        });
+                        showToast('Error updating condition: ' + (xhr.responseText || error), 'danger');
+                    }
+                });
+            });
+
+            $('#addTaskForm').on('submit', function (e) {
+                e.preventDefault();
+                const formData = {
+                    patientId: parseInt($('#taskPatientId').val()),
+                    description: $('#taskDescription').val(),
+                    taskCost: parseFloat($('#taskCost').val()),
+                    cost: parseFloat($('#taskCost').val()),
+                    date: new Date().toISOString(),
+                    status: 0
+                };
+                $.ajax({
+                    url: '@Url.Action("AddPatientTask", "Doctor")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function (result) {
+                        if (result.success) {
+                            $('#addTaskModal').modal('hide');
+                            $('.modal-backdrop').remove();
+                            $('body')
+                                .removeClass('modal-open')
+                                .css({
+                                    'padding-right': '',
+                                    'overflow': 'auto'
+                                });
+                            setTimeout(() => {
+                                cleanupModal('addTaskModal');
+                                loadPatientTasks($('#taskPatientId').val());
+                                showToast(result.message);
+                            }, 100);
+                        } else {
+                            showToast(result.message || 'Failed to add task', 'danger');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Task add error:', error);
+                        showToast('Error adding task: ' + (xhr.responseText || error), 'danger');
+                    }
+                });
+            });
+
+            $(document).on('click', '.edit-task', function () {
+                const taskId = $(this).data('task-id');
+                const description = $(this).data('description');
+                const cost = $(this).data('cost');
+                $('#editTaskId').val(taskId);
+                $('#editTaskDescription').val(description);
+                $('#editTaskCost').val(cost);
+                const modal = new bootstrap.Modal(document.getElementById('editTaskModal'));
+                modal.show();
+            });
+
+            $('#editTaskForm').on('submit', function (e) {
+                e.preventDefault();
+                const formData = {
+                    taskId: parseInt($('#editTaskId').val()),
+                    description: $('#editTaskDescription').val(),
+                    taskCost: parseFloat($('#editTaskCost').val())
+                };
+                $.ajax({
+                    url: '@Url.Action("EditPatientTask", "Doctor")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function (result) {
+                        if (result.success) {
+                            $('#editTaskModal').modal('hide');
+                            $('.modal-backdrop').remove();
+                            $('body')
+                                .removeClass('modal-open')
+                                .css({
+                                    'padding-right': '',
+                                    'overflow': 'auto'
+                                });
+                            setTimeout(() => {
+                                cleanupModal('editTaskModal');
+                                loadPatientTasks($('#taskPatientId').val());
+                                showToast(result.message);
+                            }, 100);
+                        } else {
+                            showToast(result.message || 'Failed to update task', 'danger');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Task update error:', error);
+                        showToast('Error updating task: ' + (xhr.responseText || error), 'danger');
+                    }
+                });
+            });
+
+            $(document).on('click', '.delete-task', function () {
+                if (!confirm('Are you sure you want to delete this task?')) {
+                    return;
+                }
+                const taskId = $(this).data('task-id');
+                const patientId = $('#taskPatientId').val();
+                $.ajax({
+                    url: '@Url.Action("DeletePatientTask", "Doctor")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        taskId: taskId,
+                        __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+                    }),
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function (result) {
+                        if (result.success) {
+                            loadPatientTasks(patientId);
+                            loadPatientImages(patientId);
+                            showToast(result.message);
+                        } else {
+                            showToast(result.message || 'Failed to delete task', 'danger');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Task delete error:', error);
+                        showToast('Error deleting task: ' + (xhr.responseText || error), 'danger');
+                    }
+                });
+            });
+
+            $('#updateImageForm').on('submit', function (e) {
+                e.preventDefault();
+                const formData = {
+                    imageId: parseInt($('#updateImageId').val(), 10),
+                    diseaseCategory: $('#diseaseCategory').val() || '',
+                    notes: $('#imageNotes').val() || '',
+                    __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+                };
+                $.ajax({
+                    url: '@Url.Action("UpdateImageDetails", "Doctor")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    headers: {
+                        'RequestVerificationToken': formData.__RequestVerificationToken
+                    },
+                    success: function (result) {
+                        if (result.success) {
+                            $('#updateImageModal').modal('hide');
+                            setTimeout(() => {
+                                cleanupModal('updateImageModal');
+                                loadPatientImages($('#taskPatientId').val());
+                                showToast(result.message);
+                            }, 100);
+                        } else {
+                            showToast(result.message || 'Update failed', 'danger');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error details:', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            responseText: xhr.responseText,
+                            error: error
+                        });
+                        showToast('Error updating image details: ' + (xhr.responseText || error), 'danger');
+                    }
+                });
+            });
+
+            $('.btn-close').on('click', function () {
+                const modalId = $(this).closest('.modal').attr('id');
+                cleanupModal(modalId);
+            });
+
+            $('.modal-footer .btn-secondary').on('click', function () {
+                const modalId = $(this).closest('.modal').attr('id');
+                cleanupModal(modalId);
+            });
+
+            $('.modal').on('click', function (e) {
+                if (e.target === this) {
+                    cleanupModal(this.id);
+                }
+            });
+
+            $('#generateReportBtn').on('click', function () {
+                const patientId = $('.patient-select.active').data('patient-id');
+                if (!patientId) {
+                    showToast('Please select a patient first', 'warning');
+                    return;
+                }
+                $.get('@Url.Action("GeneratePatientReport", "Doctor")', { patientId: patientId })
+                    .done(function (result) {
+                        if (result.success) {
+                            const reportHtml = generateReport(result.data);
+                            $('#reportContent').html(reportHtml);
+                            const reportModal = new bootstrap.Modal(document.getElementById('reportModal'));
+                            reportModal.show();
+                        } else {
+                            showToast(result.message || 'Error generating report', 'danger');
+                        }
+                    })
+                    .fail(function (xhr, status, error) {
+                        console.error('Report generation error:', error);
+                        showToast('Error generating report', 'danger');
+                    });
+            });
+
+            $('#printReportBtn').on('click', function () {
+                const printContents = $('#reportContent').html();
+                const originalContents = document.body.innerHTML;
+                document.body.innerHTML = `
+                            <div class="container-fluid p-4">
+                                ${printContents}
+                            </div>`;
+                window.print();
+                document.body.innerHTML = originalContents;
+                location.reload();
+            });
+        });
+    </script>
+}

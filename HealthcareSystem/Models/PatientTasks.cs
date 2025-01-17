@@ -9,12 +9,12 @@ namespace HealthcareSystem.Models
     {
         public int Id { get; set; }
         public string Description { get; set; }
-        public decimal Cost { get; set; }
         public DateTime Date { get; set; }
         public int Status { get; set; }
         public int PatientId { get; set; }
-        public Patients Patient { get; set; }
         public decimal TaskCost { get; set; }
+        public int? MedicalImageId { get; set; }
+        public Patients Patient { get; set; }
     }
 
     public enum PatientTaskStatus

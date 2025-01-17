@@ -58,6 +58,7 @@ namespace HealthcareSystem.Controllers
                 Secure = true,
                 Expires = DateTimeOffset.UtcNow.AddHours(2)
             });
+
             switch(user.Role)
             {
                 case 1: // Administrator
