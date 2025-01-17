@@ -227,9 +227,7 @@
             padding-right: 15px;
         }
     </style>
-
     <script>
-        // Initialize DataTables
         $(document).ready(function () {
             $('#tasksTable').DataTable({
                 order: [[0, 'desc']],
@@ -239,9 +237,8 @@
                     lengthMenu: "Show _MENU_ tasks per page"
                 }
             });
-
             $('#imagesTable').DataTable({
-                order: [[1, 'desc']],  // Sort by upload date
+                order: [[1, 'desc']],  
                 pageLength: 10,
                 language: {
                     search: "Search images:",
@@ -250,26 +247,22 @@
             });
         });
 
-        // Function to show full image in modal
         function showFullImage(imagePath) {
             document.getElementById('fullImage').src = imagePath;
             var imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
             imageModal.show();
         }
 
-        // Handle form submission
         document.getElementById('editProfileForm').addEventListener('submit', async function (e) {
             e.preventDefault();
-
             const data = {
-                id: document.getElementById('patientId').value,
-                userId: document.getElementById('userId').value,
+                id: parseInt(document.getElementById('patientId').value),
+                userId: parseInt(document.getElementById('userId').value),
                 name: document.getElementById('name').value,
                 address: document.getElementById('address').value
             };
-
             try {
-                const response = await fetch('/Patients/EditProfile', {
+                const response = await fetch('/Patient/EditProfile', {  
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -277,15 +270,16 @@
                     },
                     body: JSON.stringify(data)
                 });
-
                 if (response.ok) {
+                    const result = await response.json();
+                    alert('Profile updated successfully');
                     window.location.reload();
                 } else {
-                    const error = await response.text();
-                    alert('Error updating profile: ' + error);
+                    const errorData = await response.json();
+                    alert('Error updating profile: ' + errorData.message);
                 }
             } catch (error) {
-                alert('Error updating profile');
+                alert('Error updating profile: ' + error.message);
                 console.error('Error:', error);
             }
         });

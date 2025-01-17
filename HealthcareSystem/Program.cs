@@ -7,20 +7,13 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-
-// Add DbContext with SQL Server
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Add services for controllers and views
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
-
-// Add Swagger UI and configure JWT in Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
@@ -28,8 +21,6 @@ builder.Services.AddSwaggerGen(c =>
         Title = "Healthcare System API",
         Version = "v1"
     });
-
-    // Add JWT Authentication to Swagger UI
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme",
@@ -38,7 +29,6 @@ builder.Services.AddSwaggerGen(c =>
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -54,33 +44,34 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
-
-// Configure JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "Cookies"; 
+    options.DefaultChallengeScheme = "Cookies";
+})
+.AddCookie("Cookies", options =>
+{
+    options.LoginPath = "/Auth/Login";
+    options.LogoutPath = "/Auth/Login";
+    options.ExpireTimeSpan = TimeSpan.FromHours(24);
+})
+.AddJwtBearer(options =>
+{
+    var key = builder.Configuration["JWT:Secret"];
+    var issuer = builder.Configuration["JWT:Issuer"];
+    var audience = builder.Configuration["JWT:Audience"];
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        var key = builder.Configuration["JWT:Secret"];  // Get the Secret from appsettings.json
-        var issuer = builder.Configuration["JWT:Issuer"];  // Get the Issuer
-        var audience = builder.Configuration["JWT:Audience"];  // Get the Audience
-
-        Debug.WriteLine($"JWT Key: {key}");
-        Debug.WriteLine($"Issuer: {issuer}");
-        Debug.WriteLine($"Audience: {audience}");
-
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidIssuer = issuer,
-            ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
-        };
-    });
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidIssuer = issuer,
+        ValidAudience = audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+    };
+});
 
 var app = builder.Build();
-
-// Seed the database (if necessary)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -97,7 +88,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Middleware configuration
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -107,20 +97,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 
-// Add authentication and authorization middleware
-app.UseAuthentication();  // Enable authentication middleware
-app.UseAuthorization();   // Enable authorization middleware
-
-// Define logout route
-app.MapPost("/logout", async (HttpContext context) =>
-{
-    // Invalidate the current JWT token by clearing the cookies or performing any other necessary actions
-    await context.SignOutAsync();
-    return Results.Ok(new { message = "Logged out successfully" });
-});
-
-// Set the default route to the Login action in the AuthController
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Auth}/{action=Login}/{id?}");

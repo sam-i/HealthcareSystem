@@ -13,6 +13,13 @@ using HealthcareSystem.ViewModels;
 
 namespace HealthcareSystem.Controllers
 {
+    public class EditProfileViewModel
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public string Name { get; set; }
+        public string Address { get; set; }
+    }
     public class PatientController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -25,30 +32,14 @@ namespace HealthcareSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> Dashboard(int id)
         {
-            var patient = await _context.Patients
-                .Include(p => p.User)
-                .Include(p => p.MedicalImages)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
+            var patient = await _context.Patients.Include(p => p.User).Include(p => p.MedicalImages).FirstOrDefaultAsync(p => p.Id == id);
             if (patient == null)
             {
                 return NotFound();
             }
-
-            var assignedDoctor = await _context.Doctors
-                .Where(d => d.Id == patient.AssignedDoctorId)
-                .Include(d => d.User)
-                .FirstOrDefaultAsync();
-
-            var assignedRadiologist = await _context.Radiologists
-                .Where(r => r.Id == patient.AssignedRadiologistId)
-                .Include(r => r.User)
-                .FirstOrDefaultAsync();
-
-            var patientTasks = await _context.PatientTasks
-                .Where(pt => pt.PatientId == id)
-                .ToListAsync();
-
+            var assignedDoctor = await _context.Doctors.Where(d => d.Id == patient.AssignedDoctorId).Include(d => d.User).FirstOrDefaultAsync();
+            var assignedRadiologist = await _context.Radiologists.Where(r => r.Id == patient.AssignedRadiologistId).Include(r => r.User).FirstOrDefaultAsync();
+            var patientTasks = await _context.PatientTasks.Where(pt => pt.PatientId == id).ToListAsync();
             var viewModel = new PatientDashboardViewModel
             {
                 Patient = patient,
@@ -56,40 +47,42 @@ namespace HealthcareSystem.Controllers
                 AssignedRadiologist = assignedRadiologist,
                 PatientTasks = patientTasks
             };
-
             return View("~/Views/Home/PatientDashboard.cshtml", viewModel);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditProfile([FromBody] Patients patientUpdate)
+        public async Task<IActionResult> EditProfile([FromBody] EditProfileViewModel model)
         {
-            var existingPatient = await _context.Patients.FindAsync(patientUpdate.Id);
-            if (existingPatient == null)
+            if (!ModelState.IsValid)
             {
-                return NotFound();
+                return BadRequest(ModelState);
             }
-
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Update only the allowed fields
-                existingPatient.Name = patientUpdate.Name;
-                existingPatient.Address = patientUpdate.Address;
-
-                await _context.SaveChangesAsync();
-                return Ok();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!PatientExists(patientUpdate.Id))
+                var patient = await _context.Patients.Include(p => p.User).FirstOrDefaultAsync(p => p.Id == model.Id);
+                if (patient == null)
                 {
-                    return NotFound();
+                    return NotFound("Patient not found");
                 }
-                throw;
+                patient.Name = model.Name;
+                patient.Address = model.Address;
+                if (patient.User != null)
+                {
+                    patient.User.Name = model.Name;
+                }
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return Ok(new { message = "Profile updated successfully" });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = $"Error updating profile: {ex.Message}" });
             }
         }
 
-        // Helper methods
         private decimal CalculateTotalCosts(Patients patient)
         {
             return patient.MedicalImages?.Sum(m => m.Cost ?? 0) ?? 0;
@@ -103,10 +96,7 @@ namespace HealthcareSystem.Controllers
         [HttpPost]
         public IActionResult Logout()
         {
-            // Clear the authentication cookie (sign out)
             HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-            // Redirect to the login page or home page
             return RedirectToAction("Login", "Auth");
         }
     }
