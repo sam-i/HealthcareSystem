@@ -8,7 +8,6 @@ namespace HealthcareSystem.Data
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
         }
-
         public DbSet<Users> Users { get; set; }
         public DbSet<Patients> Patients { get; set; }
         public DbSet<Doctors> Doctors { get; set; }
@@ -16,7 +15,6 @@ namespace HealthcareSystem.Data
         public DbSet<Diagnoses> Diagnoses { get; set; }
         public DbSet<MedicalImages> MedicalImages { get; set; }
         public DbSet<PatientTasks> PatientTasks { get; set; }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

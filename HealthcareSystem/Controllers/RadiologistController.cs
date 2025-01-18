@@ -24,27 +24,18 @@ namespace HealthcareSystem.Controllers
 
         public async Task<IActionResult> Dashboard(int id)
         {
-            var radiologist = await _context.Radiologists
-                .Include(r => r.PatientIds)
-                .FirstOrDefaultAsync(r => r.Id == id);
-
+            var radiologist = await _context.Radiologists.Include(r => r.PatientIds).FirstOrDefaultAsync(r => r.Id == id);
             if (radiologist == null)
             {
                 return NotFound();
             }
-
-            var patients = await _context.Patients
-                .Where(p => p.AssignedRadiologistId == radiologist.Id)
-                .OrderBy(p => p.Name)
-                .ToListAsync();
-
+            var patients = await _context.Patients.Where(p => p.AssignedRadiologistId == radiologist.Id).OrderBy(p => p.Name).ToListAsync();
             var viewModel = new RadiologistDashboardViewModel
             {
                 Radiologist = radiologist,
                 Patients = patients,
                 MedicalImage = new MedicalImages()
             };
-
             return View("~/Views/Home/RadiologistDashboard.cshtml", viewModel);
         }
 
@@ -53,8 +44,7 @@ namespace HealthcareSystem.Controllers
         {
             try
             {
-                var images = await _context.MedicalImages
-                    .Where(m => m.PatientId == patientId)
+                var images = await _context.MedicalImages.Where(m => m.PatientId == patientId)
                     .Select(m => new
                     {
                         m.Id,
@@ -62,9 +52,7 @@ namespace HealthcareSystem.Controllers
                         m.ImageType,
                         m.UploadDate,
                         m.Cost
-                    })
-                    .ToListAsync();
-
+                    }).ToListAsync();
                 return Json(images);
             }
             catch (Exception ex)
@@ -84,38 +72,31 @@ namespace HealthcareSystem.Controllers
                 {
                     return BadRequest(new { success = false, message = "Invalid patient or radiologist ID" });
                 }
-
                 if (imageFile == null || imageFile.Length == 0)
                 {
                     return BadRequest(new { success = false, message = "No file uploaded" });
                 }
-
                 if (!cost.HasValue || cost.Value < 0)
                 {
                     return BadRequest(new { success = false, message = "Invalid cost value" });
                 }
-
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".dcm" };
                 var fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
                 if (!allowedExtensions.Contains(fileExtension))
                 {
                     return BadRequest(new { success = false, message = $"Invalid file type. Allowed types: {string.Join(", ", allowedExtensions)}" });
                 }
-
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
                     var uploadDirectory = Path.Combine(_environment.WebRootPath, "uploads", "medical-images");
                     Directory.CreateDirectory(uploadDirectory);
-
                     var fileName = $"{Guid.NewGuid()}{fileExtension}";
                     var filePath = Path.Combine(uploadDirectory, fileName);
-
                     using (var stream = new FileStream(filePath, FileMode.Create))
                     {
                         await imageFile.CopyToAsync(stream);
                     }
-
                     var medicalImage = new MedicalImages
                     {
                         PatientId = patientId,
@@ -129,7 +110,6 @@ namespace HealthcareSystem.Controllers
                     };
                     _context.MedicalImages.Add(medicalImage);
                     await _context.SaveChangesAsync();
-
                     var patientTask = new PatientTasks
                     {
                         Description = "Pay for Image Scan Procedure",
@@ -141,19 +121,15 @@ namespace HealthcareSystem.Controllers
                     };
                     _context.PatientTasks.Add(patientTask);
                     await _context.SaveChangesAsync();
-
                     medicalImage.PatientTaskId = patientTask.Id;
                     _context.MedicalImages.Update(medicalImage);
-
                     var patient = await _context.Patients.FindAsync(patientId);
                     if (patient != null)
                     {
                         patient.TotalCost += cost.Value;
                         await _context.SaveChangesAsync();
                     }
-
                     await transaction.CommitAsync();
-
                     return Json(new
                     {
                         success = true,
@@ -189,41 +165,31 @@ namespace HealthcareSystem.Controllers
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    var image = await _context.MedicalImages
-                        .FirstOrDefaultAsync(m => m.Id == imageId && m.UploadedByRadiologistId == radiologistId);
-
+                    var image = await _context.MedicalImages.FirstOrDefaultAsync(m => m.Id == imageId && m.UploadedByRadiologistId == radiologistId);
                     if (image == null)
                     {
                         return Json(new { success = false, message = "Image not found or you are not authorized to delete this image." });
                     }
-
                     var patientId = image.PatientId;
-
-                    var task = await _context.PatientTasks
-                        .FirstOrDefaultAsync(t => t.MedicalImageId == imageId);
+                    var task = await _context.PatientTasks.FirstOrDefaultAsync(t => t.MedicalImageId == imageId);
                     if (task != null)
                     {
                         _context.PatientTasks.Remove(task);
                     }
-
                     var filePath = Path.Combine(_environment.WebRootPath, "uploads", "medical-images", image.StoragePath);
                     if (System.IO.File.Exists(filePath))
                     {
                         System.IO.File.Delete(filePath);
                     }
-
                     _context.MedicalImages.Remove(image);
                     await _context.SaveChangesAsync();
-
                     var patient = await _context.Patients.FindAsync(patientId);
                     if (patient != null)
                     {
                         patient.TotalCost -= image.Cost ?? 0;
                         await _context.SaveChangesAsync();
                     }
-
                     await transaction.CommitAsync();
-
                     return Json(new { success = true, message = "Image deleted successfully." });
                 }
                 catch (Exception)
@@ -242,16 +208,11 @@ namespace HealthcareSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPatientDoctor(int patientId)
         {
-            var patient = await _context.Patients
-                .Include(p => p.AssignedDoctor)
-                    .ThenInclude(d => d.User)
-                .FirstOrDefaultAsync(p => p.Id == patientId);
-
+            var patient = await _context.Patients.Include(p => p.AssignedDoctor).ThenInclude(d => d.User).FirstOrDefaultAsync(p => p.Id == patientId);
             if (patient?.AssignedDoctor != null)
             {
                 return Json(new { doctorName = patient.AssignedDoctor.User.Name });
             }
-
             return Json(new { doctorName = "" });
         }
 

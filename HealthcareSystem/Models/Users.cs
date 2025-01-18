@@ -13,7 +13,6 @@ namespace HealthcareSystem.Models
         public int Role { get; set; }
         public string Name { get; set; }
     }
-
     public enum UserRole
     {
         Administrator = 1,

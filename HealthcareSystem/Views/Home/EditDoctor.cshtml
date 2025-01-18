@@ -1,29 +1,24 @@
 ﻿@model HealthcareSystem.ViewModels.EditDoctorViewModel
 
 <h2>Edit Doctor</h2>
-
 <form asp-action="EditDoctor" method="post">
     <input type="hidden" asp-for="Id" />
-
     <div class="mb-3">
         <label asp-for="Name" class="form-label">Name *</label>
         <input asp-for="Name" class="form-control" required />
         <span asp-validation-for="Name" class="text-danger"></span>
     </div>
-
     <div class="mb-3">
         <label asp-for="AssignedPatientIds" class="form-label">Assigned Patients</label>
         <select asp-for="AssignedPatientIds" asp-items="Model.AvailablePatients" class="form-select" multiple>
         </select>
     </div>
-
     <button type="submit" class="btn btn-primary">Save Changes</button>
     <a asp-action="Dashboard" class="btn btn-secondary">Cancel</a>
 </form>
 
 @section Scripts {
     <script>
-        // Initialize multiple select dropdowns with Select2
         $(document).ready(function () {
             $('select[multiple]').select2({
                 width: '100%',

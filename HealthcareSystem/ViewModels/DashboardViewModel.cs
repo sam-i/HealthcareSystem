@@ -13,25 +13,17 @@ namespace HealthcareSystem.ViewModels
         public List<DoctorSummaryDto> Doctors { get; set; }
         public List<RadiologistSummaryDto> Radiologists { get; set; }
     }
-
     public class DoctorDashboardViewModel
     {
         public Doctors Doctor { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public int TotalPatients { get; set; }
-        public int PendingTasks { get; set; }
-        public List<PatientTasks> RecentTasks { get; set; } = new();
-        public decimal TotalTasksCost { get; set; }
         public List<Patients> Patients { get; set; } = new List<Patients>();
     }
-
     public class RadiologistDashboardViewModel
     {
         public Radiologists Radiologist { get; set; }
         public MedicalImages MedicalImage { get; set; }
         public List<Patients> Patients { get; set; } = new List<Patients>();
     }
-
     public class PatientDashboardViewModel
     {
         public HealthcareSystem.Models.Patients Patient { get; set; }
@@ -39,5 +31,4 @@ namespace HealthcareSystem.ViewModels
         public HealthcareSystem.Models.Radiologists AssignedRadiologist { get; set; }
         public List<PatientTasks> PatientTasks { get; set; }
     }
-
 }

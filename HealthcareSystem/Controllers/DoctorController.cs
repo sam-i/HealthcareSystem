@@ -20,7 +20,6 @@ namespace HealthcareSystem.Controllers
         public int PatientId { get; set; }
         public string Condition { get; set; }
     }
-
     public class DoctorController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -33,31 +32,17 @@ namespace HealthcareSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> Dashboard(int id)
         {
-            var doctor = await _context.Doctors
-                .Include(d => d.User)
-                .Include(d => d.PatientIds)
-                .FirstOrDefaultAsync(d => d.Id == id);
-
+            var doctor = await _context.Doctors.Include(d => d.User).Include(d => d.PatientIds).FirstOrDefaultAsync(d => d.Id == id);
             if (doctor == null)
             {
                 return NotFound();
             }
-
-            var patients = await _context.Patients
-                .Where(p => p.AssignedDoctorId == id)
-                .Include(p => p.User)
-                .Include(p => p.MedicalImages)
-                .Include(p => p.AssignedRadiologist)
-                    .ThenInclude(r => r.User)
-                .OrderBy(p => p.Name)
-                .ToListAsync();
-
+            var patients = await _context.Patients.Where(p => p.AssignedDoctorId == id).Include(p => p.User).Include(p => p.MedicalImages).Include(p => p.AssignedRadiologist).ThenInclude(r => r.User).OrderBy(p => p.Name).ToListAsync();
             var viewModel = new DoctorDashboardViewModel
             {
                 Doctor = doctor,
                 Patients = patients
             };
-
             var patientTasks = await _context.PatientTasks.Where(pt => patients.Select(p => p.Id).Contains(pt.PatientId)).ToListAsync();
             return View("~/Views/Home/DoctorDashboard.cshtml", viewModel);
         }
@@ -65,8 +50,7 @@ namespace HealthcareSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPatientTasks(int patientId)
         {
-            var tasks = await _context.PatientTasks
-                .Where(t => t.PatientId == patientId)
+            var tasks = await _context.PatientTasks.Where(t => t.PatientId == patientId)
                 .Select(t => new  
                 {
                     t.Id,
@@ -75,10 +59,7 @@ namespace HealthcareSystem.Controllers
                     t.Status,
                     t.TaskCost,  
                     t.PatientId
-                })
-                .OrderByDescending(t => t.Date)
-                .ToListAsync();
-
+                }).OrderByDescending(t => t.Date).ToListAsync();
             return Json(tasks);
         }
 
@@ -93,7 +74,6 @@ namespace HealthcareSystem.Controllers
                 {
                     return BadRequest(new { success = false, message = "Invalid input" });
                 }
-
                 var task = new PatientTasks
                 {
                     PatientId = model.PatientId,
@@ -102,17 +82,13 @@ namespace HealthcareSystem.Controllers
                     Date = DateTime.Now,
                     Status = (int)PatientTaskStatus.Pending
                 };
-
                 _context.PatientTasks.Add(task);
-
                 var patient = await _context.Patients.FindAsync(model.PatientId);
                 if (patient != null)
                 {
                     patient.TotalCost += model.TaskCost;
                 }
-
                 await _context.SaveChangesAsync();
-
                 return Json(new { success = true, message = "Task added successfully" });
             }
             catch (Exception ex)
@@ -176,7 +152,6 @@ namespace HealthcareSystem.Controllers
                 {
                     return Json(new { success = false, message = "Task not found" });
                 }
-
                 var patient = await _context.Patients.FindAsync(task.PatientId);
                 if (patient != null)
                 {
@@ -187,7 +162,6 @@ namespace HealthcareSystem.Controllers
                         patient.TotalCost = 0;
                     }
                 }
-
                 task.Description = model.Description;
                 task.TaskCost = model.TaskCost;
                 task.Status = model.Status;
@@ -218,13 +192,11 @@ namespace HealthcareSystem.Controllers
                 {
                     return Json(new { success = false, message = "Invalid data submitted" });
                 }
-
                 var image = await _context.MedicalImages.FindAsync(model.ImageId);
                 if (image == null)
                 {
                     return Json(new { success = false, message = "Image not found" });
                 }
-
                 image.DiseaseCategory = model.DiseaseCategory;
                 image.Notes = model.Notes;
                 image.IsClassified = true;
@@ -249,7 +221,6 @@ namespace HealthcareSystem.Controllers
                 {
                     return Json(new { success = false, message = "Patient not found" });
                 }
-
                 patient.CurrentCondition = model.Condition;
                 await _context.SaveChangesAsync();
                 return Json(new { success = true, message = "Patient condition updated successfully" });
@@ -274,30 +245,13 @@ namespace HealthcareSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> GeneratePatientReport(int patientId)
         {
-            var patient = await _context.Patients
-                .Include(p => p.User)
-                .Include(p => p.AssignedDoctor)
-                    .ThenInclude(d => d.User)
-                .Include(p => p.AssignedRadiologist)
-                    .ThenInclude(r => r.User)
-                .Include(p => p.MedicalImages)
-                .FirstOrDefaultAsync(p => p.Id == patientId);
-
+            var patient = await _context.Patients.Include(p => p.User).Include(p => p.AssignedDoctor).ThenInclude(d => d.User).Include(p => p.AssignedRadiologist).ThenInclude(r => r.User).Include(p => p.MedicalImages).FirstOrDefaultAsync(p => p.Id == patientId);
             if (patient == null)
             {
                 return Json(new { success = false, message = "Patient not found" });
             }
-
-            var tasks = await _context.PatientTasks
-                .Where(t => t.PatientId == patientId)
-                .OrderByDescending(t => t.Date)
-                .ToListAsync();
-
-            var images = await _context.MedicalImages
-                .Where(m => m.PatientId == patientId)
-                .OrderByDescending(m => m.UploadDate)
-                .ToListAsync();
-
+            var tasks = await _context.PatientTasks.Where(t => t.PatientId == patientId).OrderByDescending(t => t.Date).ToListAsync();
+            var images = await _context.MedicalImages.Where(m => m.PatientId == patientId).OrderByDescending(m => m.UploadDate).ToListAsync();
             var reportData = new
             {
                 patientInfo = new

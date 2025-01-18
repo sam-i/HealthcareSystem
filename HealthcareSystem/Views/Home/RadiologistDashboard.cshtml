@@ -3,6 +3,7 @@
 @{
     var token = Antiforgery.GetAndStoreTokens(Context).RequestToken;
 }
+
 <form action="@Url.Action("Logout", "Radiologist")" method="post" style="position: absolute; top: 10px; right: 10px;">
     <button type="submit" class="btn btn-danger">Logout</button>
 </form>
@@ -98,23 +99,12 @@
                             <label for="imageCost">Image Cost</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number"
-                                       id="imageCost"
-                                       name="cost"
-                                       step="0.01"
-                                       min="0"
-                                       class="form-control"
-                                       required>
+                                <input type="number" id="imageCost" name="cost" step="0.01" min="0" class="form-control" required>
                             </div>
                         </div>
                         <div class="form-group mb-3">
                             <label for="imageFile">Upload Image</label>
-                            <input type="file"
-                                   class="form-control"
-                                   id="imageFile"
-                                   name="imageFile"
-                                   accept=".jpg,.jpeg,.png,.dcm"
-                                   required>
+                            <input type="file" class="form-control" id="imageFile" name="imageFile" accept=".jpg,.jpeg,.png,.dcm" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -141,6 +131,7 @@
     </div>
 </div>
 <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1050;"></div>
+
 @section Scripts {
     <style>
         .scrollable-content {
@@ -177,7 +168,6 @@
                                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                             </div>
                         </div>`;
-
             $('#toastContainer').append(toast);
             const toastElement = $('.toast').last();
             const bsToast = new bootstrap.Toast(toastElement);
@@ -380,7 +370,6 @@
                         } catch (e) {
                             errorMessage += ': ' + (xhr.responseText || error);
                         }
-
                         showErrorToast(errorMessage);
                     }
                 });

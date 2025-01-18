@@ -16,7 +16,6 @@ namespace HealthcareSystem.Models
         public int? MedicalImageId { get; set; }
         public Patients Patient { get; set; }
     }
-
     public enum PatientTaskStatus
     {
         Cancelled = -1,

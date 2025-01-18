@@ -4,11 +4,9 @@
 }
 
 <h2>Admin Dashboard</h2>
-
 <form action="@Url.Action("Logout", "Admin")" method="post" style="position: absolute; top: 10px; right: 10px;">
     <button type="submit" class="btn btn-danger">Logout</button>
 </form>
-
 <div class="mb-4">
     <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addDoctorModal">
         Add Doctor
@@ -20,7 +18,6 @@
         Add Patient
     </button>
 </div>
-
 <div class="dashboard-stats">
     <div class="stat-box">
         <h3>Total Patients</h3>
@@ -39,7 +36,6 @@
         <p>@Model.TotalSystemCost.ToString("C")</p>
     </div>
 </div>
-
 <h3>Patients</h3>
 <table class="table">
     <thead>
@@ -69,7 +65,6 @@
         }
     </tbody>
 </table>
-
 <h3>Doctors</h3>
 <table class="table">
     <thead>
@@ -93,7 +88,6 @@
         }
     </tbody>
 </table>
-
 <h3>Radiologists</h3>
 <table class="table">
     <thead>
@@ -117,7 +111,6 @@
         }
     </tbody>
 </table>
-
 <div class="modal fade" id="addDoctorModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -157,7 +150,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="addRadiologistModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -197,7 +189,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="addPatientModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -256,7 +247,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -274,7 +264,6 @@
         </div>
     </div>
 </div>
-
 @section Scripts {
     <script>
         $(document).ready(function () {

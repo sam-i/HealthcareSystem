@@ -28,8 +28,7 @@ namespace HealthcareSystem.Controllers
                 TotalDoctors = await _context.Doctors.CountAsync(),
                 TotalRadiologists = await _context.Radiologists.CountAsync(),
                 TotalSystemCost = await _context.Patients.SumAsync(t => t.TotalCost),
-                Patients = await _context.Patients
-                    .Include(p => p.User)
+                Patients = await _context.Patients.Include(p => p.User)
                     .Select(p => new PatientDto
                     {
                         Id = p.Id,
@@ -38,32 +37,21 @@ namespace HealthcareSystem.Controllers
                         AssignedDoctorName = _context.Doctors.Where(d => d.Id == p.AssignedDoctorId).Select(d => d.User.Name).FirstOrDefault(),
                         AssignedRadiologistName = _context.Radiologists.Where(r => r.Id == p.AssignedRadiologistId).Select(r => r.User.Name).FirstOrDefault(),
                         TotalCost = p.TotalCost
-                    })
-                    .OrderBy(p => p.Name)
-                    .ToListAsync(),
-                Doctors = await _context.Doctors
-                    .Include(d => d.User)
-                    .Include(d => d.PatientIds)
+                    }).OrderBy(p => p.Name).ToListAsync(),
+                Doctors = await _context.Doctors.Include(d => d.User).Include(d => d.PatientIds)
                     .Select(d => new DoctorSummaryDto
                     {
                         Id = d.Id,
                         Name = d.User.Name,
                         PatientCount = d.PatientIds.Count
-                    })
-                    .OrderBy(p => p.Name)
-                    .ToListAsync(),
-
-                Radiologists = await _context.Radiologists
-                    .Include(r => r.User)
-                    .Include(r => r.PatientIds)
+                    }).OrderBy(p => p.Name).ToListAsync(),
+                Radiologists = await _context.Radiologists.Include(r => r.User).Include(r => r.PatientIds)
                     .Select(r => new RadiologistSummaryDto
                     {
                         Id = r.Id,
                         Name = r.User.Name,
                         PatientCount = r.PatientIds.Count
-                    })
-                    .OrderBy(p => p.Name)
-                    .ToListAsync()
+                    }).OrderBy(p => p.Name).ToListAsync()
             };
             return View("~/Views/Home/AdminDashboard.cshtml", viewModel);
         }
@@ -76,9 +64,7 @@ namespace HealthcareSystem.Controllers
                 {
                     return (false, "Username already exists", null);
                 }
-
                 string hashedPassword = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
                 var user = new Users
                 {
                     Username = dto.Username,
@@ -86,12 +72,9 @@ namespace HealthcareSystem.Controllers
                     Role = dto.Role,
                     Name = dto.Name
                 };
-
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
-
                 dynamic roleEntity = null;
-
                 switch (dto.Role)
                 {
                     case 2: // Doctor
@@ -346,11 +329,7 @@ namespace HealthcareSystem.Controllers
         [HttpGet]
         public async Task<IActionResult> EditPatient(int id)
         {
-            var patient = await _context.Patients
-                .Include(p => p.User)
-                .Include(p => p.AssignedDoctor)
-                .Include(p => p.AssignedRadiologist)
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var patient = await _context.Patients.Include(p => p.User).Include(p => p.AssignedDoctor).Include(p => p.AssignedRadiologist).FirstOrDefaultAsync(p => p.Id == id);
             if (patient == null)
             {
                 return NotFound();
@@ -368,15 +347,13 @@ namespace HealthcareSystem.Controllers
                     {
                         Value = d.Id.ToString(),
                         Text = d.Name
-                    })
-                    .ToListAsync(),
+                    }).ToListAsync(),
                 AvailableRadiologists = await _context.Radiologists
                     .Select(r => new SelectListItem
                     {
                         Value = r.Id.ToString(),
                         Text = r.Name
-                    })
-                    .ToListAsync()
+                    }).ToListAsync()
             };
             return View("~/Views/Home/EditPatient.cshtml", viewModel);
         }
@@ -405,26 +382,20 @@ namespace HealthcareSystem.Controllers
                 {
                     Value = d.Id.ToString(),
                     Text = d.Name
-                })
-                .ToListAsync();
+                }).ToListAsync();
             model.AvailableRadiologists = await _context.Radiologists
                 .Select(r => new SelectListItem
                 {
                     Value = r.Id.ToString(),
                     Text = r.Name
-                })
-                .ToListAsync();
-
+                }).ToListAsync();
             return View("~/Views/Home/EditPatient.cshtml", model);
         }
 
         [HttpGet]
         public async Task<IActionResult> EditDoctor(int id)
         {
-            var doctor = await _context.Doctors
-                .Include(d => d.User)
-                .Include(d => d.PatientIds)
-                .FirstOrDefaultAsync(d => d.Id == id);
+            var doctor = await _context.Doctors.Include(d => d.User).Include(d => d.PatientIds).FirstOrDefaultAsync(d => d.Id == id);
             if (doctor == null)
             {
                 return NotFound();
@@ -439,8 +410,7 @@ namespace HealthcareSystem.Controllers
                     {
                         Value = p.Id.ToString(),
                         Text = p.Name
-                    })
-                    .ToListAsync()
+                    }).ToListAsync()
             };
             return View("~/Views/Home/EditDoctor.cshtml", viewModel);
         }
@@ -453,10 +423,7 @@ namespace HealthcareSystem.Controllers
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    var doctor = await _context.Doctors
-                        .Include(d => d.User)
-                        .Include(d => d.PatientIds)
-                        .FirstOrDefaultAsync(d => d.Id == model.Id);
+                    var doctor = await _context.Doctors.Include(d => d.User).Include(d => d.PatientIds).FirstOrDefaultAsync(d => d.Id == model.Id);
                     if (doctor == null)
                     {
                         return NotFound();
@@ -499,18 +466,14 @@ namespace HealthcareSystem.Controllers
                 {
                     Value = p.Id.ToString(),
                     Text = p.Name
-                })
-                .ToListAsync();
+                }).ToListAsync();
             return View("~/Views/Home/EditDoctor.cshtml", model);
         }
 
         [HttpGet]
         public async Task<IActionResult> EditRadiologist(int id)
         {
-            var radiologist = await _context.Radiologists
-                .Include(r => r.User)
-                .Include(r => r.PatientIds)
-                .FirstOrDefaultAsync(r => r.Id == id);
+            var radiologist = await _context.Radiologists.Include(r => r.User).Include(r => r.PatientIds).FirstOrDefaultAsync(r => r.Id == id);
             if (radiologist == null)
             {
                 return NotFound();
@@ -525,8 +488,7 @@ namespace HealthcareSystem.Controllers
                     {
                         Value = p.Id.ToString(),
                         Text = p.Name
-                    })
-                    .ToListAsync()
+                    }).ToListAsync()
             };
             return View("~/Views/Home/EditRadiologist.cshtml", viewModel);
         }
@@ -539,10 +501,7 @@ namespace HealthcareSystem.Controllers
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    var radiologist = await _context.Radiologists
-                        .Include(r => r.User)
-                        .Include(r => r.PatientIds)
-                        .FirstOrDefaultAsync(r => r.Id == model.Id);
+                    var radiologist = await _context.Radiologists.Include(r => r.User).Include(r => r.PatientIds).FirstOrDefaultAsync(r => r.Id == model.Id);
                     if (radiologist == null)
                     {
                         return NotFound();
@@ -585,8 +544,7 @@ namespace HealthcareSystem.Controllers
                 {
                     Value = p.Id.ToString(),
                     Text = p.Name
-                })
-                .ToListAsync();
+                }).ToListAsync();
             return View("~/Views/Home/EditRadiologist.cshtml", model);
         }
 
@@ -623,10 +581,7 @@ namespace HealthcareSystem.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var doctor = await _context.Doctors
-                    .Include(d => d.User)
-                    .Include(d => d.PatientIds)
-                    .FirstOrDefaultAsync(d => d.Id == id);
+                var doctor = await _context.Doctors.Include(d => d.User).Include(d => d.PatientIds).FirstOrDefaultAsync(d => d.Id == id);
                 if (doctor == null)
                 {
                     return NotFound();
@@ -657,10 +612,7 @@ namespace HealthcareSystem.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var radiologist = await _context.Radiologists
-                    .Include(r => r.User)
-                    .Include(r => r.PatientIds)
-                    .FirstOrDefaultAsync(r => r.Id == id);
+                var radiologist = await _context.Radiologists.Include(r => r.User).Include(r => r.PatientIds).FirstOrDefaultAsync(r => r.Id == id);
                 if (radiologist == null)
                 {
                     return NotFound();

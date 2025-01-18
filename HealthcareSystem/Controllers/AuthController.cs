@@ -22,43 +22,32 @@ namespace HealthcareSystem.Controllers
             _configuration = configuration;
         }
 
-        // Serve the Login View
         [HttpGet]
         public IActionResult Login()
         {
-            return View("~/Views/Home/Login.cshtml"); // Specify the path explicitly
+            return View("~/Views/Home/Login.cshtml");
         }
 
-        // Handle Login Submission
         [HttpPost]
         public async Task<IActionResult> Login(LoginDto model)
         {
             if (!ModelState.IsValid)
             {
-                return View("~/Views/Home/Login.cshtml", model); // Return view with errors
+                return View("~/Views/Home/Login.cshtml", model);
             }
-
-            // Check if the user exists
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Username == model.Username);
-
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == model.Username);
             if (user == null || !VerifyPassword(model.Password, user.PasswordHash))
             {
                 ModelState.AddModelError(string.Empty, "Invalid username or password");
                 return View("~/Views/Home/Login.cshtml", model);
             }
-
-            // Generate JWT token
             var token = GenerateJwtToken(user);
-
-            // Store token in a cookie or session
             Response.Cookies.Append("AuthToken", token, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
                 Expires = DateTimeOffset.UtcNow.AddHours(2)
             });
-
             switch(user.Role)
             {
                 case 1: // Administrator
@@ -85,7 +74,7 @@ namespace HealthcareSystem.Controllers
                     }
                     return RedirectToAction("Index", "Home");
                 default:
-                    return RedirectToAction("Index", "Home"); // Default redirection for unknown roles
+                    return RedirectToAction("Index", "Home"); 
             }
         }
 
@@ -94,14 +83,12 @@ namespace HealthcareSystem.Controllers
             var secret = _configuration["JWT:Secret"] ?? "000";
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
             var claims = new[]
             {
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Role, user.Role.ToString()),
                 new Claim("UserId", user.Id.ToString())
             };
-
             var token = new JwtSecurityToken(
                 issuer: _configuration["JWT:Issuer"],
                 audience: _configuration["JWT:Audience"],
@@ -109,16 +96,12 @@ namespace HealthcareSystem.Controllers
                 expires: DateTime.UtcNow.AddHours(2),
                 signingCredentials: credentials
             );
-
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
-            Debug.WriteLine($"Generated JWT: {tokenString}");  // Ensure token is printed in the output
             return tokenString;
         }
 
         private bool VerifyPassword(string password, string passwordHash)
         {
-            // Use a secure password hashing library like BCrypt for verification
             return BCrypt.Net.BCrypt.Verify(password, passwordHash);
         }
     }

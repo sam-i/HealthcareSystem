@@ -1,6 +1,4 @@
-﻿using HealthcareSystem.Models;
-
-namespace HealthcareSystem.DTOs
+﻿namespace HealthcareSystem.DTOs
 {
     public class CreateAccountDto
     {

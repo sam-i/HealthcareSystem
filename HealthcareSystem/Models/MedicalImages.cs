@@ -21,7 +21,6 @@ namespace HealthcareSystem.Models
         public decimal? Cost { get; set; }
         public int? PatientTaskId { get; set; }
     }
-
     public enum ImageType
     {
         MRI = 1,
